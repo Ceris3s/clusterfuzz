@@ -27,7 +27,7 @@ def mark(testcase):
   testcase.open = False
   testcase.put()
 
-  helpers.log('Marked testcase %s as fixed' % testcase.key.id(),
+  helpers.log(f'Marked testcase {testcase.key.id()} as fixed',
               helpers.MODIFY_OPERATION)
   return testcase
 

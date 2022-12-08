@@ -53,16 +53,13 @@ class Handler(base_handler.Handler):
         'security': security_flag,
     }
 
-    duplicate_testcase = data_handler.find_testcase(
-        project, state.crash_type, state.crash_state, security_flag)
-    if duplicate_testcase:
+    if duplicate_testcase := data_handler.find_testcase(
+        project, state.crash_type, state.crash_state, security_flag):
       result['result'] = 'duplicate'
       result['duplicate_id'] = duplicate_testcase.key.id()
 
-      bug_id = (
-          duplicate_testcase.bug_information or
-          duplicate_testcase.group_bug_information)
-      if bug_id:
+      if bug_id := (duplicate_testcase.bug_information
+                    or duplicate_testcase.group_bug_information):
         result['bug_id'] = str(bug_id)
     else:
       result['result'] = 'new'

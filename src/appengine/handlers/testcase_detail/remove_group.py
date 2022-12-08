@@ -30,8 +30,9 @@ def remove_group(testcase_id):
   data_handler.remove_testcase_from_group(testcase)
 
   helpers.log(
-      'Removed the testcase %s from the group %s' %
-      (testcase.key.id(), group_id), helpers.MODIFY_OPERATION)
+      f'Removed the testcase {testcase.key.id()} from the group {group_id}',
+      helpers.MODIFY_OPERATION,
+  )
 
   return testcase
 

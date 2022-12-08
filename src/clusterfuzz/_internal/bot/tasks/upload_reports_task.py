@@ -52,16 +52,15 @@ def execute_task(*_):
     try:
       _ = data_handler.get_testcase_by_id(testcase_id)
     except errors.InvalidTestcaseError:
-      logs.log_warn('Could not find testcase %s.' % testcase_id)
+      logs.log_warn(f'Could not find testcase {testcase_id}.')
       report_metadata_to_delete.append(report_metadata.key)
       continue
 
     # Upload the report and update the corresponding testcase info.
-    logs.log('Processing testcase %s for crash upload.' % testcase_id)
+    logs.log(f'Processing testcase {testcase_id} for crash upload.')
     crash_report_id = crash_info.upload()
     if crash_report_id is None:
-      logs.log_error(
-          'Crash upload for testcase %s failed, retry later.' % testcase_id)
+      logs.log_error(f'Crash upload for testcase {testcase_id} failed, retry later.')
       continue
 
     # Update the report metadata to indicate successful upload.
@@ -69,8 +68,9 @@ def execute_task(*_):
     report_metadata.is_uploaded = True
     report_metadata.put()
 
-    logs.log('Uploaded testcase %s to crash, got back report id %s.' %
-             (testcase_id, crash_report_id))
+    logs.log(
+        f'Uploaded testcase {testcase_id} to crash, got back report id {crash_report_id}.'
+    )
     time.sleep(1)
 
   # Delete report metadata entries where testcase does not exist anymore or

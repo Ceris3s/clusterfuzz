@@ -65,7 +65,7 @@ def _compute_rolls(start_revisions_dict, end_revisions_dict):
 
 def _extract_url_and_sha_from_deps_entry(entry):
   """Split a DEPS file entry into a URL and git sha."""
-  assert 'url' in entry and 'rev' in entry, 'Unexpected format: %s' % entry
+  assert 'url' in entry and 'rev' in entry, f'Unexpected format: {entry}'
   url = entry['url']
   sha = entry['rev']
 
@@ -101,7 +101,7 @@ def _is_predator_testcase(testcase):
       return False, 'No regression range, wait for regression task to finish.'
 
     if ':' not in testcase.regression:
-      return False, 'Invalid regression range %s.' % testcase.regression
+      return False, f'Invalid regression range {testcase.regression}.'
 
   return True, None
 
@@ -174,8 +174,9 @@ def _prepare_predator_message(testcase):
   # Do a None check since we can return {} for revision = 0.
   if crash_revisions_dict is None:
     _set_predator_result_with_error(
-        testcase, 'Failed to fetch component revisions for revision %s.' %
-        testcase.crash_revision)
+        testcase,
+        f'Failed to fetch component revisions for revision {testcase.crash_revision}.',
+    )
     return None
 
   dependency_rolls = []
@@ -190,8 +191,9 @@ def _prepare_predator_message(testcase):
     # Do a None check since we can return {} for revision = 0.
     if start_revisions_dict is None:
       _set_predator_result_with_error(
-          testcase, 'Failed to fetch component revisions for revision %s.' %
-          start_revision)
+          testcase,
+          f'Failed to fetch component revisions for revision {start_revision}.',
+      )
       return None
 
     end_revisions_dict, end_revision_hash = (
@@ -200,7 +202,8 @@ def _prepare_predator_message(testcase):
     if end_revisions_dict is None:
       _set_predator_result_with_error(
           testcase,
-          'Failed to fetch component revisions for revision %s.' % end_revision)
+          f'Failed to fetch component revisions for revision {end_revision}.',
+      )
       return None
 
     if start_revision != 0:
@@ -302,6 +305,7 @@ def execute_task(testcase_id, _):
   # Post request to pub sub.
   client = pubsub.PubSubClient()
   message_ids = client.publish(topic, [message])
-  logs.log('Successfully published testcase %s to Predator. Message IDs: %s.' %
-           (testcase_id, message_ids))
+  logs.log(
+      f'Successfully published testcase {testcase_id} to Predator. Message IDs: {message_ids}.'
+  )
   data_handler.update_testcase_comment(testcase, data_types.TaskState.FINISHED)

@@ -145,10 +145,7 @@ class CrashReportInfo(object):
     self._minidump_path = minidump_path
     self._product = product
     self._version = version
-    if optional_params is None:
-      self._optional_params = {}
-    else:
-      self._optional_params = optional_params
+    self._optional_params = {} if optional_params is None else optional_params
     self._unsymbolized_stacktrace = unsymbolized_stacktrace
     self._symbolized_stacktrace = symbolized_stacktrace
     self._testcase_id = testcase_id
@@ -249,9 +246,7 @@ class CrashReportInfo(object):
       return None
 
     # Build the upload parameters.
-    params = {}
-    params[PRODUCT_KEY] = self.product
-    params[VERSION_KEY] = self.version
+    params = {PRODUCT_KEY: self.product, VERSION_KEY: self.version}
     if self.testcase_id is not None:
       params[CF_ID_KEY] = self.testcase_id
     if self.bot_id is not None:
@@ -266,8 +261,7 @@ class CrashReportInfo(object):
     # Send off the report, returning the report ID.
     mode = environment.get_value('UPLOAD_MODE')
     if not mode or mode not in CRASH_REPORT_UPLOAD_URL:
-      logs.log_warn(
-          'Missing or unknown mode (%s); uploading to staging.' % str(mode))
+      logs.log_warn(f'Missing or unknown mode ({str(mode)}); uploading to staging.')
       mode = 'staging'
     return post_with_retries(CRASH_REPORT_UPLOAD_URL[mode], params, files)
 
@@ -277,7 +271,7 @@ class CrashReportInfo(object):
       return ''
 
     minidump_key = ''
-    logs.log('Storing minidump (%s) in blobstore.' % self.minidump_info.path)
+    logs.log(f'Storing minidump ({self.minidump_info.path}) in blobstore.')
     try:
       minidump_key = ''
       with open(self.minidump_info.path, 'rb') as file_handle:
@@ -322,7 +316,7 @@ def parse_mime_to_crash_report_info(local_minidump_mime_path):
     logs.log_error('Minidump filename in unexpected format: \'%s\'.' %
                    local_minidump_mime_path)
     return None
-  minidump_path = '%s.dmp' % minidump_path_match.group(1).strip()
+  minidump_path = f'{minidump_path_match[1].strip()}.dmp'
 
   # Reformat the minidump MIME to include the boundary.
   with open(local_minidump_mime_path, 'rb') as minidump_mime_file_content:
@@ -340,8 +334,9 @@ def parse_mime_to_crash_report_info(local_minidump_mime_path):
   for mime_part in minidump_mime_contents.get_payload():
     if isinstance(mime_part, str):
       mime_part = utils.decode_to_unicode(mime_part)
-      logs.log_error('Unexpected str mime_part from mime path %s: %s' %
-                     (local_minidump_mime_path, mime_part))
+      logs.log_error(
+          f'Unexpected str mime_part from mime path {local_minidump_mime_path}: {mime_part}'
+      )
       continue
     part_descriptor = list(mime_part.values())
     key_tokens = part_descriptor[0].split('; ')
@@ -349,7 +344,7 @@ def parse_mime_to_crash_report_info(local_minidump_mime_path):
 
     # Extract from the MIME part the key-value pairs used by report uploading.
     if key_match is not None:
-      report_key = key_match.group(1)
+      report_key = key_match[1]
       report_value = mime_part.get_payload(decode=True)
       if report_key == MINIDUMP_FILE_KEY:
         utils.write_data_to_file(report_value, minidump_path)
@@ -412,9 +407,8 @@ def get_crash_info(output):
       minidump_mime_filename_base = None
       for j in range(i + 1, num_lines):
         line = output_lines[j]
-        match = re.match(r'(.*)\.dmp', line)
-        if match:
-          minidump_mime_filename_base = os.path.basename(match.group(1).strip())
+        if match := re.match(r'(.*)\.dmp', line):
+          minidump_mime_filename_base = os.path.basename(match[1].strip())
           break
       if not minidump_mime_filename_base:
         logs.log_error('Minidump marker was found, but no path in stacktrace.')
@@ -433,7 +427,7 @@ def get_crash_info(output):
 
       for device_directory in device_directories_to_search:
         device_minidump_mime_potential_paths = adb.run_shell_command(
-            ['ls', '"%s"' % device_directory], root=True).splitlines()
+            ['ls', f'"{device_directory}"'], root=True).splitlines()
         device_minidump_search_paths += device_minidump_mime_potential_paths
 
         for potential_path in device_minidump_mime_potential_paths:
@@ -460,16 +454,15 @@ def get_crash_info(output):
         return None
 
       # Pull out MIME and parse to minidump file and MIME parameters.
-      minidump_mime_filename = '%s.mime' % minidump_mime_filename_base
+      minidump_mime_filename = f'{minidump_mime_filename_base}.mime'
       local_minidump_mime_path = os.path.join(crash_stacks_directory,
                                               minidump_mime_filename)
-      adb.run_command([
-          'pull',
-          '"%s"' % device_minidump_mime_path, local_minidump_mime_path
-      ])
+      adb.run_command(
+          ['pull', f'"{device_minidump_mime_path}"', local_minidump_mime_path])
       if not os.path.exists(local_minidump_mime_path):
-        logs.log_error('Could not pull MIME from %s to %s.' %
-                       (device_minidump_mime_path, local_minidump_mime_path))
+        logs.log_error(
+            f'Could not pull MIME from {device_minidump_mime_path} to {local_minidump_mime_path}.'
+        )
         return None
 
       crash_info = parse_mime_to_crash_report_info(local_minidump_mime_path)
@@ -524,9 +517,9 @@ def get_crash_info_and_stacktrace(application_command_line, crash_stacktrace,
         crash_stacktrace = utils.decode_to_unicode(output)
         break
 
-    if not crash_info or not crash_info.minidump_info.path:
-      # We could not regenerate a minidump for this crash.
-      logs.log('Unable to regenerate a minidump for this crash.')
+  if not crash_info or not crash_info.minidump_info.path:
+    # We could not regenerate a minidump for this crash.
+    logs.log('Unable to regenerate a minidump for this crash.')
 
   return crash_info, crash_stacktrace
 
@@ -595,5 +588,5 @@ def save_crash_info_if_needed(testcase_id, crash_revision, job_type, crash_type,
   crash_report_metadata.crash_revision = crash_revision
   crash_report_metadata.put()
 
-  logs.log('Created crash report entry for testcase %s.' % testcase_id)
+  logs.log(f'Created crash report entry for testcase {testcase_id}.')
   return crash_info

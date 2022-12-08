@@ -56,32 +56,26 @@ class VCSViewer(object):
 
   def get_source_url_for_revision(self, revision):
     """Return source revision url given a url and revision."""
-    if not self.VCS_REVISION_SUB:
-      return None
-
-    return self.get_mapped_url(self.VCS_REVISION_SUB, revision=revision)
+    return (self.get_mapped_url(self.VCS_REVISION_SUB, revision=revision)
+            if self.VCS_REVISION_SUB else None)
 
   def get_source_url_for_revision_diff(self, start_revision, end_revision):
     """Return source revision diff url given a url and revision."""
-    if not self.VCS_REVISION_DIFF_SUB:
-      return None
-
-    return self.get_mapped_url(
+    return (self.get_mapped_url(
         self.VCS_REVISION_DIFF_SUB,
         start_revision=start_revision,
         end_revision=end_revision,
-        range_limit=RANGE_LIMIT)
+        range_limit=RANGE_LIMIT,
+    ) if self.VCS_REVISION_DIFF_SUB else None)
 
   def get_source_url_for_revision_path_and_line(self, revision, path, line):
     """Return source revision url given a url, revision, path and line."""
-    if not self.VCS_REVISION_PATH_LINE_SUB:
-      return None
-
-    return self.get_mapped_url(
+    return (self.get_mapped_url(
         self.VCS_REVISION_PATH_LINE_SUB,
         revision=revision,
         path=path,
-        line=line)
+        line=line,
+    ) if self.VCS_REVISION_PATH_LINE_SUB else None)
 
 
 class FreeDesktopVCS(VCSViewer):
@@ -176,11 +170,8 @@ def get_component_source_and_relative_path(path, revisions_dict):
 
 def get_vcs_viewer_for_url(url):
   """Return a VCS instance given an input url."""
-  for vcs in VCS_LIST:
-    if vcs.VCS_URL_REGEX.match(url):
-      return vcs(url)
-
-  return None
+  return next((vcs(url) for vcs in VCS_LIST if vcs.VCS_URL_REGEX.match(url)),
+              None)
 
 
 def linkify_stack_frame(stack_frame, revisions_dict):
@@ -212,10 +203,7 @@ def linkify_stack_frame(stack_frame, revisions_dict):
       path=component_path.display_path,
       line=line)
 
-  linkified_stack_frame = STACK_FRAME_PATH_LINE_REGEX.sub(
-      link_html, stack_frame)
-
-  return linkified_stack_frame
+  return STACK_FRAME_PATH_LINE_REGEX.sub(link_html, stack_frame)
 
 
 def normalize_source_path(path):

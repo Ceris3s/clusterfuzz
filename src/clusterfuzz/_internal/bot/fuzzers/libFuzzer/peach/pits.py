@@ -25,11 +25,11 @@ def get_path(grammar):
 
   pit_dir = os.path.join(environment.get_platform_resources_directory(),
                          'peach', 'pits')
-  pit_path = os.path.join(pit_dir, grammar + '.xml')
+  pit_path = os.path.join(pit_dir, f'{grammar}.xml')
 
   if not os.path.exists(pit_path):
     logs.log_error(
-        'Pit file for "%s" grammar is not found.' % grammar, pit_path=pit_path)
+        f'Pit file for "{grammar}" grammar is not found.', pit_path=pit_path)
     return None
 
   return pit_path

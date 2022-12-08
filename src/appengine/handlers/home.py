@@ -124,13 +124,12 @@ def get_results():
   else:
     projects = _get_project_results_for_external_user(external_jobs)
 
-  results = {
+  return {
       'info': {
           'projects': projects,
           'is_internal_user': is_user,
       },
   }
-  return results
 
 
 class Handler(base_handler.Handler):

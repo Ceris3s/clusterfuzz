@@ -101,15 +101,12 @@ class _KeyQuery(object):
 
     queries = []
     for query in self.or_filters[0]:
-      for q in query.flatten():
-        queries.append(q)
-
+      queries.extend(iter(query.flatten()))
     for or_queries in self.or_filters[1:]:
       new_queries = []
       for oq in or_queries:
         for fq in oq.flatten():
-          for q in queries:
-            new_queries.append(_combine(q, fq))
+          new_queries.extend(_combine(q, fq) for q in queries)
       queries = new_queries
 
     for q in queries:
@@ -125,16 +122,14 @@ class _KeyQuery(object):
     query = self.model.query()
     properties = self.model._properties  # pylint: disable=protected-access
     for (prop_op, prop, value) in self.filters:
-      if prop_op == '=':
-        filter_func = properties[prop].__eq__
-      elif prop_op == '!=':
+      if prop_op == '!=':
         filter_func = properties[prop].__ne__
-      elif prop_op == '<':
+      elif prop_op in ['<', '<=']:
         filter_func = properties[prop].__le__
+      elif prop_op == '=':
+        filter_func = properties[prop].__eq__
       elif prop_op == '>':
         filter_func = properties[prop].__gt__
-      elif prop_op == '<=':
-        filter_func = properties[prop].__le__
       elif prop_op == '>=':
         filter_func = properties[prop].__ge__
 
@@ -153,18 +148,14 @@ class _KeyQuery(object):
     """Construct queries and run them."""
     queries = self.flatten()
 
-    runs = []
-    # TODO(tanin): Improve the speed by detecting if we need union (or OR).
-    # If we don't need union, we can set keys_only=True and projection=None in
-    # order to improve speed; it's likely to be 2x faster.
-    for q in queries:
-      runs.append(
-          _Run(
-              q.to_datastore_query(),
-              keys_only=False,
-              projection=[self.order_property],
-              limit=total))
-    return runs
+    return [
+        _Run(
+            q.to_datastore_query(),
+            keys_only=False,
+            projection=[self.order_property],
+            limit=total,
+        ) for q in queries
+    ]
 
   def _get_total_count(self, runs, offset, limit, items, more_limit):
     """Get total count by querying more items."""
@@ -281,9 +272,7 @@ class Query(base.Query):
     """Return the items, total_pages, total_items, and has_more."""
 
     # Validation check to convert all negative page numbers to 1.
-    if page < 1:
-      page = 1
-
+    page = max(page, 1)
     items, total_items, has_more = self.fetch(
         offset=(page - 1) * page_size,
         limit=page_size,

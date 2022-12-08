@@ -20,10 +20,8 @@ from . import config
 
 def file_chunk_generator(handle):
   """Yields chunks from handle."""
-  data = handle.read(config.FILE_TRANSFER_CHUNK_SIZE)
-  while data:
+  while data := handle.read(config.FILE_TRANSFER_CHUNK_SIZE):
     yield untrusted_runner_pb2.FileChunk(data=data)
-    data = handle.read(config.FILE_TRANSFER_CHUNK_SIZE)
 
 
 def data_chunk_generator(data):

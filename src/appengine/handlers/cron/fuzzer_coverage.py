@@ -45,8 +45,7 @@ def _read_json(url):
   try:
     result = json.loads(data)
   except Exception as e:
-    logs.log_warn(
-        'Empty or malformed code coverage JSON (%s): %s.' % (url, str(e)))
+    logs.log_warn(f'Empty or malformed code coverage JSON ({url}): {str(e)}.')
 
   return result
 
@@ -85,16 +84,15 @@ def _process_fuzzer_stats(fuzzer, project_info, project_name, bucket):
   fuzzer_name = data_types.fuzz_target_project_qualified_name(
       project_name, _basename(fuzzer))
   fuzzer_info_path = storage.get_cloud_storage_file_path(bucket, fuzzer)
-  logs.log(
-      'Processing fuzzer stats for %s (%s).' % (fuzzer_name, fuzzer_info_path))
+  logs.log(f'Processing fuzzer stats for {fuzzer_name} ({fuzzer_info_path}).')
   return _coverage_information(fuzzer_info_path, fuzzer_name, project_info)
 
 
 def _process_project_stats(project_info, project_name):
   """Processes coverage stats for a single project."""
   summary_path = project_info['report_summary_path']
-  logs.log('Processing total stats for %s project (%s).' % (project_name,
-                                                            summary_path))
+  logs.log(
+      f'Processing total stats for {project_name} project ({summary_path}).')
   return _coverage_information(summary_path, project_name, project_info)
 
 
@@ -102,21 +100,20 @@ def _process_project(project, bucket):
   """Collects coverage information for all fuzz targets in the given project and
   the total stats for the project."""
   project_name = _basename(project)
-  logs.log('Processing coverage for %s project.' % project_name)
+  logs.log(f'Processing coverage for {project_name} project.')
   report_path = storage.get_cloud_storage_file_path(bucket, project)
   report_info = _read_json(report_path)
   if not report_info:
-    logs.log_warn('Skipping code coverage for %s project.' % project_name)
+    logs.log_warn(f'Skipping code coverage for {project_name} project.')
     return
 
   # Iterate through report_info['fuzzer_stats_dir'] and prepare
   # CoverageInformation entities for invididual fuzz targets.
-  entities = []
-  for fuzzer in storage.list_blobs(
-      report_info['fuzzer_stats_dir'], recursive=False):
-    entities.append(
-        _process_fuzzer_stats(fuzzer, report_info, project_name, bucket))
-
+  entities = [
+      _process_fuzzer_stats(fuzzer, report_info, project_name, bucket)
+      for fuzzer in storage.list_blobs(
+          report_info['fuzzer_stats_dir'], recursive=False)
+  ]
   logs.log('Processed coverage for %d targets in %s project.' % (len(entities),
                                                                  project_name))
 

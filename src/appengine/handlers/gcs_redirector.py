@@ -37,4 +37,4 @@ class Handler(base_handler.Handler):
       host_url = storage.DIRECTORY_URL
 
     bucket_name, object_path = storage.get_bucket_name_and_path(gcs_path)
-    return self.redirect(host_url + '/' + bucket_name + '/' + object_path)
+    return self.redirect(f'{host_url}/{bucket_name}/{object_path}')

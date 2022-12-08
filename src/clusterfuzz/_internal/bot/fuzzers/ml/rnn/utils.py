@@ -62,10 +62,9 @@ def build_model(num_rnn_cells, dropout_pkeep, batch_size, debug):
 
 def validate_model_path(model_path):
   """RNN model consists of two files. This validates if they all exist."""
-  model_exists = (
-      os.path.exists(model_path + constants.MODEL_DATA_SUFFIX) and
-      os.path.exists(model_path + constants.MODEL_INDEX_SUFFIX))
-  return model_exists
+  return os.path.exists(model_path +
+                        constants.MODEL_DATA_SUFFIX) and os.path.exists(
+                            model_path + constants.MODEL_INDEX_SUFFIX)
 
 
 def random_element_from_list(sequence):
@@ -188,7 +187,7 @@ def rnn_minibatch_sequencer(raw_data, batch_size, sequence_size, nb_epochs):
   assert nb_batches > 0, ('Not enough data, even for a single batch. Try using '
                           'a smaller batch_size.')
   rounded_data_len = nb_batches * batch_size * sequence_size
-  xdata = np.reshape(data[0:rounded_data_len],
+  xdata = np.reshape(data[:rounded_data_len],
                      [batch_size, nb_batches * sequence_size])
   ydata = np.reshape(data[1:rounded_data_len + 1],
                      [batch_size, nb_batches * sequence_size])
@@ -234,7 +233,7 @@ def print_learning_learned_comparison(x, y, losses, input_ranges, batch_loss,
     formatted_decy = '{: <40.40}'.format(decy)
     inputname = find_input(index_in_epoch, input_ranges)
     formatted_inputname = '{: <10.20}'.format(inputname)
-    epoch_string = '{:6d}'.format(index) + ' (epoch {}) '.format(epoch)
+    epoch_string = '{:6d}'.format(index) + f' (epoch {epoch}) '
     loss_string = 'loss: {:.5f}'.format(losses[k])
     print_string = epoch_string + formatted_inputname + ' | {} | {} | {}'
     print(print_string.format(formatted_decx, formatted_decy, loss_string))
@@ -252,11 +251,10 @@ def print_learning_learned_comparison(x, y, losses, input_ranges, batch_loss,
 
   # Print statistics
   batch_index = start_index_in_epoch // (batch_size * sequence_len)
-  batch_string = 'batch {}/{} in epoch {},'.format(batch_index, epoch_size,
-                                                   epoch)
+  batch_string = f'batch {batch_index}/{epoch_size} in epoch {epoch},'
   stats = '{: <28} batch loss: {:.5f}, batch accuracy: {:.5f}'.format(
       batch_string, batch_loss, batch_accuracy)
-  print('\nTRAINING STATS: {}'.format(stats))
+  print(f'\nTRAINING STATS: {stats}')
 
 
 class Progress(object):
@@ -352,7 +350,7 @@ def read_data_files(directory, validation=False):
           'name': input_file.rsplit('/', 1)[-1]
       })
 
-  print('Loaded {} corpus files.'.format(len(input_list)))
+  print(f'Loaded {len(input_list)} corpus files.')
 
   if not input_ranges:
     sys.exit('No training data has been found. Aborting.')
@@ -399,9 +397,10 @@ def print_data_stats(data_len, validation_len, epoch_size):
   """Print training data statistics, such as size, batches."""
   data_len_mb = data_len / 1024.0 / 1024.0
   validation_len_kb = validation_len / 1024.0
-  print('Training text size is {:.2f}MB with {:.2f}KB set aside for validation.'
-        .format(data_len_mb, validation_len_kb) +
-        'There will be {} batches per epoch'.format(epoch_size))
+  print(
+      ('Training text size is {:.2f}MB with {:.2f}KB set aside for validation.'
+       .format(data_len_mb, validation_len_kb) +
+       f'There will be {epoch_size} batches per epoch'))
 
 
 def print_validation_header(validation_start, input_ranges):

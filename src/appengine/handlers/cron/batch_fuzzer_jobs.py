@@ -34,21 +34,20 @@ def batch_fuzzer_jobs():
         data_types.FuzzerJob.query(data_types.FuzzerJob.platform == platform))
     fuzzer_jobs.sort(key=lambda item: item.job)
 
-    batches_to_remove = set(
-        b.key for b in data_types.FuzzerJobs.query(
-            data_types.FuzzerJobs.platform == platform))
+    batches_to_remove = {
+        b.key
+        for b in data_types.FuzzerJobs.query(
+            data_types.FuzzerJobs.platform == platform)
+    }
 
-    batch_count = 0
-    for i in range(0, len(fuzzer_jobs), FUZZER_JOB_BATCH_SIZE):
-      key_id = platform + '-' + str(batch_count)
+    for batch_count, i in enumerate(range(0, len(fuzzer_jobs), FUZZER_JOB_BATCH_SIZE)):
+      key_id = f'{platform}-{str(batch_count)}'
       end = min(i + FUZZER_JOB_BATCH_SIZE, len(fuzzer_jobs))
 
       batched = data_types.FuzzerJobs(id=key_id, platform=platform)
       batched.platform = platform
       batched.fuzzer_jobs = fuzzer_jobs[i:end]
       batched.put()
-      batch_count += 1
-
       batches_to_remove.discard(batched.key)
 
     # Remove additional batches if number reduced.

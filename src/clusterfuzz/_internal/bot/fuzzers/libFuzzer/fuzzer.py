@@ -19,10 +19,8 @@ from clusterfuzz._internal.bot.fuzzers.libFuzzer import constants
 
 def get_grammar(fuzzer_path):
   """Get grammar for a given fuzz target. Return none if there isn't one."""
-  fuzzer_options = options.get_fuzz_target_options(fuzzer_path)
-  if fuzzer_options:
-    grammar = fuzzer_options.get_grammar_options()
-    if grammar:
+  if fuzzer_options := options.get_fuzz_target_options(fuzzer_path):
+    if grammar := fuzzer_options.get_grammar_options():
       return grammar.get('grammar')
 
   return None
@@ -34,11 +32,8 @@ def get_arguments(fuzzer_path):
   rss_limit_mb = None
   timeout = None
 
-  fuzzer_options = options.get_fuzz_target_options(fuzzer_path)
-
-  if fuzzer_options:
-    libfuzzer_arguments = fuzzer_options.get_engine_arguments('libfuzzer')
-    if libfuzzer_arguments:
+  if fuzzer_options := options.get_fuzz_target_options(fuzzer_path):
+    if libfuzzer_arguments := fuzzer_options.get_engine_arguments('libfuzzer'):
       arguments.extend(libfuzzer_arguments.list())
       rss_limit_mb = libfuzzer_arguments.get('rss_limit_mb', constructor=int)
       timeout = libfuzzer_arguments.get('timeout', constructor=int)
@@ -46,25 +41,18 @@ def get_arguments(fuzzer_path):
   if not timeout:
     arguments.append(
         '%s%d' % (constants.TIMEOUT_FLAG, constants.DEFAULT_TIMEOUT_LIMIT))
-  else:
-    # Custom timeout value shouldn't be greater than the default timeout
-    # limit.
-    # TODO(mmoroz): Eventually, support timeout values greater than the
-    # default.
-    if timeout > constants.DEFAULT_TIMEOUT_LIMIT:
-      arguments.remove('%s%d' % (constants.TIMEOUT_FLAG, timeout))
-      arguments.append(
-          '%s%d' % (constants.TIMEOUT_FLAG, constants.DEFAULT_TIMEOUT_LIMIT))
+  elif timeout > constants.DEFAULT_TIMEOUT_LIMIT:
+    arguments.remove('%s%d' % (constants.TIMEOUT_FLAG, timeout))
+    arguments.append(
+        '%s%d' % (constants.TIMEOUT_FLAG, constants.DEFAULT_TIMEOUT_LIMIT))
 
   if not rss_limit_mb:
     arguments.append(
         '%s%d' % (constants.RSS_LIMIT_FLAG, constants.DEFAULT_RSS_LIMIT_MB))
-  else:
-    # Custom rss_limit_mb value shouldn't be greater than the default value.
-    if rss_limit_mb > constants.DEFAULT_RSS_LIMIT_MB:
-      arguments.remove('%s%d' % (constants.RSS_LIMIT_FLAG, rss_limit_mb))
-      arguments.append(
-          '%s%d' % (constants.RSS_LIMIT_FLAG, constants.DEFAULT_RSS_LIMIT_MB))
+  elif rss_limit_mb > constants.DEFAULT_RSS_LIMIT_MB:
+    arguments.remove('%s%d' % (constants.RSS_LIMIT_FLAG, rss_limit_mb))
+    arguments.append(
+        '%s%d' % (constants.RSS_LIMIT_FLAG, constants.DEFAULT_RSS_LIMIT_MB))
 
   return arguments
 

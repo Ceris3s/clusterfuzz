@@ -25,9 +25,9 @@ def get_file_modified_times(directory):
   """Return a list of last modified times for the files in a directory."""
   modified_times = []
   for root, _, filenames in os.walk(directory):
-    for filename in filenames:
-      modified_times.append(os.path.getmtime(os.path.join(root, filename)))
-
+    modified_times.extend(
+        os.path.getmtime(os.path.join(root, filename))
+        for filename in filenames)
   return modified_times
 
 
@@ -42,7 +42,7 @@ def build_file(filename):
   if os.path.exists(output_filename) and os.path.getsize(output_filename):
     return True
 
-  print('Failed to build template: ' + output_filename)
+  print(f'Failed to build template: {output_filename}')
   return False
 
 

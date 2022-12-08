@@ -87,9 +87,8 @@ class KeywordFilter(filters.Filter):
 
     for keyword in value.split(' '):
       query.raw_filter(
-          '(LOWER(crash_state) LIKE %s OR LOWER(crash_type) LIKE %s)' %
-          (json.dumps('%%%s%%' % keyword.lower()),
-           json.dumps('%%%s%%' % keyword.lower())))
+          f"(LOWER(crash_state) LIKE {json.dumps('%%%s%%' % keyword.lower())} OR LOWER(crash_type) LIKE {json.dumps('%%%s%%' % keyword.lower())})"
+      )
 
 
 class IncludeZeroFilter(filters.Filter):
@@ -98,9 +97,9 @@ class IncludeZeroFilter(filters.Filter):
   def add(self, query, params):
     """Set query based on if range should include 0 or not."""
     value = params.get('includeZero', False)
-    prefix = params['type']
-
     if not value:
+      prefix = params['type']
+
       query.raw_filter('{prefix}_range_start > 0'.format(prefix=prefix))
 
 
@@ -127,11 +126,12 @@ FILTERS = [
 def get(params, query, offset, limit):
   """Get the data from BigQuery."""
   sql = SQL.format(
-      table_id='%ss' % params['type'],
+      table_id=f"{params['type']}s",
       where_clause=query.get_where_clause(),
       prefix=params['type'],
       offset=offset,
-      limit=limit)
+      limit=limit,
+  )
   client = big_query.Client()
   result = client.query(query=sql, offset=offset, limit=limit)
   return result.rows, result.total_count

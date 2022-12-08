@@ -31,8 +31,9 @@ def update(testcase):
       queue=tasks.queue_for_testcase(testcase))
 
   helpers.log(
-      'Marked testcase %s for last tested stacktrace update' %
-      testcase.key.id(), helpers.MODIFY_OPERATION)
+      f'Marked testcase {testcase.key.id()} for last tested stacktrace update',
+      helpers.MODIFY_OPERATION,
+  )
 
 
 class Handler(base_handler.Handler):

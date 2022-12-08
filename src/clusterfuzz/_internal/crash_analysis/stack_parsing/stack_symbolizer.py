@@ -135,7 +135,7 @@ def chrome_dsym_hints(binary):
   innermost_bundle_dir = utils.strip_from_right(innermost_bundle_dir,
                                                 '.framework')
   dsym_path = product_dir + [innermost_bundle_dir]
-  result = '%s.dSYM' % os.path.sep.join(dsym_path)
+  result = f'{os.path.sep.join(dsym_path)}.dSYM'
   return [result]
 
 
@@ -166,10 +166,7 @@ def fix_filename(file_name):
 
 def fix_function_name(function_name):
   """Clean up function name."""
-  if function_name.startswith('??'):
-    return ''
-
-  return function_name
+  return '' if function_name.startswith('??') else function_name
 
 
 def get_stack_frame(binary, addr, function_name, file_name):
@@ -181,16 +178,16 @@ def get_stack_frame(binary, addr, function_name, file_name):
   # Check if we don't have any symbols at all. If yes, this is probably
   # a system library. In this case, just return the binary name.
   if not function_name and not file_name:
-    return '%s in %s' % (addr, os.path.basename(binary))
+    return f'{addr} in {os.path.basename(binary)}'
 
   # We just have a file name. Probably running in global context.
   if not function_name:
     # Filter the filename to act as a function name.
     filtered_file_name = os.path.basename(file_name)
-    return '%s in %s %s' % (addr, filtered_file_name, file_name)
+    return f'{addr} in {filtered_file_name} {file_name}'
 
   # Regular stack frame.
-  return '%s in %s %s' % (addr, function_name, file_name)
+  return f'{addr} in {function_name} {file_name}'
 
 
 def is_valid_arch(s):
@@ -204,10 +201,7 @@ def is_valid_arch(s):
 def guess_arch(address):
   """Guess which architecture we're running on (32/64).
   10 = len('0x') + 8 hex digits."""
-  if len(address) > 10:
-    return 'x86_64'
-  else:
-    return 'i386'
+  return 'x86_64' if len(address) > 10 else 'i386'
 
 
 class Symbolizer(object):
@@ -248,15 +242,13 @@ class LLVMSymbolizer(Symbolizer):
     # Setup symbolizer command line.
     cmd = [
         self.symbolizer_path,
-        '--default-arch=%s' % self.default_arch,
+        f'--default-arch={self.default_arch}',
         '--demangle',
         '--functions=linkage',
-        '--inlining=%s' % stack_inlining,
+        f'--inlining={stack_inlining}',
     ]
     if self.system == 'darwin':
-      for hint in self.dsym_hints:
-        cmd.append('--dsym-hint=%s' % hint)
-
+      cmd.extend(f'--dsym-hint={hint}' for hint in self.dsym_hints)
     # Set LD_LIBRARY_PATH to use the right libstdc++.
     env_copy = environment.copy()
     env_copy['LD_LIBRARY_PATH'] = os.path.dirname(self.symbolizer_path)
@@ -278,11 +270,11 @@ class LLVMSymbolizer(Symbolizer):
   def symbolize(self, addr, binary, offset):
     """Overrides Symbolizer.symbolize."""
     if not binary.strip():
-      return ['%s in' % addr]
+      return [f'{addr} in']
 
     result = []
     try:
-      symbolizer_input = '"%s" %s' % (binary, offset)
+      symbolizer_input = f'"{binary}" {offset}'
       self.pipe.stdin.write(symbolizer_input.encode('utf-8') + b'\n')
       self.pipe.stdin.flush()
       while True:
@@ -294,8 +286,9 @@ class LLVMSymbolizer(Symbolizer):
         result.append(get_stack_frame(binary, addr, function_name, file_name))
 
     except Exception:
-      logs.log_error('Symbolization using llvm-symbolizer failed for: "%s".' %
-                     symbolizer_input)
+      logs.log_error(
+          f'Symbolization using llvm-symbolizer failed for: "{symbolizer_input}".'
+      )
       result = []
     if not result:
       result = None
@@ -325,7 +318,7 @@ class Addr2LineSymbolizer(Symbolizer):
     if self.binary != binary:
       return None
     if not binary.strip():
-      return ['%s in' % addr]
+      return [f'{addr} in']
 
     try:
       symbolizer_input = str(offset).encode('utf-8')
@@ -334,8 +327,8 @@ class Addr2LineSymbolizer(Symbolizer):
       function_name = self.pipe.stdout.readline().rstrip().decode('utf-8')
       file_name = self.pipe.stdout.readline().rstrip().decode('utf-8')
     except Exception:
-      logs.log_error('Symbolization using addr2line failed for: "%s %s".' %
-                     (binary, str(offset)))
+      logs.log_error(
+          f'Symbolization using addr2line failed for: "{binary} {str(offset)}".')
       function_name = ''
       file_name = ''
 
@@ -394,20 +387,16 @@ class DarwinSymbolizer(Symbolizer):
       atos_line = self.atos.convert('0x%x' % int(offset, 16))
       while 'got symbolicator for' in atos_line:
         atos_line = self.atos.readline()
-      # A well-formed atos response looks like this:
-      #   foo(type1, type2) (in object.name) (filename.cc:80)
-      match = re.match('^(.*) \(in (.*)\) \((.*:\d*)\)$', atos_line)
-      if match:
-        function_name = match.group(1)
-        function_name = re.sub('\(.*?\)', '', function_name)
-        file_name = match.group(3)
-        return [get_stack_frame(binary, addr, function_name, file_name)]
-      else:
-        return ['%s in %s' % (addr, atos_line)]
+      if not (match := re.match('^(.*) \(in (.*)\) \((.*:\d*)\)$', atos_line)):
+        return [f'{addr} in {atos_line}']
+      function_name = match[1]
+      function_name = re.sub('\(.*?\)', '', function_name)
+      file_name = match[3]
+      return [get_stack_frame(binary, addr, function_name, file_name)]
     except Exception:
-      logs.log_error('Symbolization using atos failed for: "%s %s".' %
-                     (binary, str(offset)))
-      return ['{} ({}:{}+{})'.format(addr, binary, self.arch, offset)]
+      logs.log_error(
+          f'Symbolization using atos failed for: "{binary} {str(offset)}".')
+      return [f'{addr} ({binary}:{self.arch}+{offset})']
 
 
 # Chain several symbolizers so that if one symbolizer fails, we fall back
@@ -422,8 +411,7 @@ class ChainSymbolizer(Symbolizer):
     """Overrides Symbolizer.symbolize."""
     for symbolizer in self.symbolizer_list:
       if symbolizer:
-        result = symbolizer.symbolize(addr, binary, offset)
-        if result:
+        if result := symbolizer.symbolize(addr, binary, offset):
           return result
     return None
 
@@ -463,23 +451,20 @@ class SymbolizationLoop(object):
     #     if so, reuse |last_llvm_symbolizer| which has the full set of hints;
     #  3. otherwise create a new symbolizer and pass all currently known
     #     .dSYM hints to it.
-    if not binary in self.llvm_symbolizers:
+    if binary not in self.llvm_symbolizers:
       use_new_symbolizer = True
       if self.system == 'darwin' and self.dsym_hint_producer:
         dsym_hints_for_binary = set(self.dsym_hint_producer(binary))
         use_new_symbolizer = bool(dsym_hints_for_binary - self.dsym_hints)
         self.dsym_hints |= dsym_hints_for_binary
-      if self.last_llvm_symbolizer and not use_new_symbolizer:
-        self.llvm_symbolizers[binary] = self.last_llvm_symbolizer
-      else:
+      if not self.last_llvm_symbolizer or use_new_symbolizer:
         self.last_llvm_symbolizer = LLVMSymbolizerFactory(
             self.system, arch, self.dsym_hints)
-        self.llvm_symbolizers[binary] = self.last_llvm_symbolizer
-
+      self.llvm_symbolizers[binary] = self.last_llvm_symbolizer
     # Use the chain of symbolizers:
     # LLVM symbolizer -> addr2line/atos
     # (fall back to next symbolizer if the previous one fails).
-    if not binary in symbolizers:
+    if binary not in symbolizers:
       symbolizers[binary] = ChainSymbolizer([self.llvm_symbolizers[binary]])
     result = symbolizers[binary].symbolize(addr, binary, offset)
     if result is None:
@@ -493,43 +478,39 @@ class SymbolizationLoop(object):
 
   def _line_parser(self, line):
     """Parses line for frameno_str, addr, binary, offset, arch."""
-    match = STACK_TRACE_LINE_REGEX.match(line)
-    if match:
-      _, frameno_str, addr, binary, offset = match.groups()
-      arch = ""
-      # Arch can be embedded in the filename, e.g.: "libabc.dylib:x86_64h"
-      colon_pos = binary.rfind(":")
-      if colon_pos != -1:
-        maybe_arch = binary[colon_pos + 1:]
-        if is_valid_arch(maybe_arch):
-          arch = maybe_arch
-          binary = binary[0:colon_pos]
-      if arch == "":
-        arch = guess_arch(addr)
+    if not (match := STACK_TRACE_LINE_REGEX.match(line)):
+      return None, None, None, None, None
+    _, frameno_str, addr, binary, offset = match.groups()
+    arch = ""
+    # Arch can be embedded in the filename, e.g.: "libabc.dylib:x86_64h"
+    colon_pos = binary.rfind(":")
+    if colon_pos != -1:
+      maybe_arch = binary[colon_pos + 1:]
+      if is_valid_arch(maybe_arch):
+        arch = maybe_arch
+        binary = binary[:colon_pos]
+    if arch == "":
+      arch = guess_arch(addr)
 
-      return frameno_str, addr, binary, offset, arch
-
-    return None, None, None, None, None
+    return frameno_str, addr, binary, offset, arch
 
   def _lkl_line_parser(self, line):
     """Parses line for frameno_str, addr, binary, offset, arch."""
-    match = STACK_TRACE_LINE_REGEX_LKL.match(line)
-    if match:
+    if match := STACK_TRACE_LINE_REGEX_LKL.match(line):
       # LKL is always ran on x86_64 host.
       arch = 'x86_64'
       _, frameno_str, addr, _, _, _ = match.groups()
       # In LKL the offset from the base of kernel lib is the address.
       offset = addr
       binary = self.lkl_binary_name
-      return frameno_str, addr, binary, offset, arch
-
+      return frameno_str, offset, binary, offset, arch
     return None, None, None, None, None
 
   def process_stacktrace(self, unsymbolized_crash_stacktrace):
     self.frame_no = 0
     symbolized_crash_stacktrace = u''
     unsymbolized_crash_stacktrace_lines = \
-      unsymbolized_crash_stacktrace.splitlines()
+        unsymbolized_crash_stacktrace.splitlines()
     if lkl.is_lkl_stack_trace(unsymbolized_crash_stacktrace):
       line_parser = self._lkl_line_parser
       self.lkl_binary_name = lkl.get_lkl_binary_name(
@@ -555,17 +536,16 @@ class SymbolizationLoop(object):
       if self.binary_path_filter:
         binary = self.binary_path_filter(binary)
       symbolized_line = self.symbolize_address(addr, binary, offset, arch)
-      if not symbolized_line:
-        if original_binary != binary:
-          symbolized_line = self.symbolize_address(addr, original_binary,
-                                                   offset, arch)
+      if not symbolized_line and original_binary != binary:
+        symbolized_line = self.symbolize_address(addr, original_binary,
+                                                 offset, arch)
 
       if not symbolized_line:
         symbolized_crash_stacktrace += u'%s\n' % self.current_line
       else:
         for symbolized_frame in symbolized_line:
-          symbolized_crash_stacktrace += u'%s\n' % (
-              '    #' + str(self.frame_no) + ' ' + symbolized_frame.rstrip())
+          symbolized_crash_stacktrace += (
+              u'%s\n' % f'    #{str(self.frame_no)} {symbolized_frame.rstrip()}')
           self.frame_no += 1
 
     # Close any left-over open pipes.
@@ -642,7 +622,4 @@ def symbolize_stacktrace(unsymbolized_crash_stacktrace,
   loop = SymbolizationLoop(
       binary_path_filter=filter_binary_path,
       dsym_hint_producer=chrome_dsym_hints)
-  symbolized_crash_stacktrace = loop.process_stacktrace(
-      unsymbolized_crash_stacktrace)
-
-  return symbolized_crash_stacktrace
+  return loop.process_stacktrace(unsymbolized_crash_stacktrace)

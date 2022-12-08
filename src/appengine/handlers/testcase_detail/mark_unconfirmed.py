@@ -32,8 +32,10 @@ def mark(testcase):
     testcase.minimized_keys = 'NA'
   testcase.put()
 
-  helpers.log('Marked testcase %s as unconfirmed' % testcase.key.id(),
-              helpers.MODIFY_OPERATION)
+  helpers.log(
+      f'Marked testcase {testcase.key.id()} as unconfirmed',
+      helpers.MODIFY_OPERATION,
+  )
 
 
 class Handler(base_handler.Handler):

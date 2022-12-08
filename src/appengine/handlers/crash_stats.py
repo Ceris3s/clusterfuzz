@@ -100,9 +100,8 @@ class KeywordFilter(filters.Filter):
 
     for keyword in value.split(' '):
       query.raw_filter(
-          '(LOWER(crash_state) LIKE %s OR LOWER(crash_type) LIKE %s)' %
-          (json.dumps('%%%s%%' % keyword.lower()),
-           json.dumps('%%%s%%' % keyword.lower())))
+          f"(LOWER(crash_state) LIKE {json.dumps('%%%s%%' % keyword.lower())} OR LOWER(crash_type) LIKE {json.dumps('%%%s%%' % keyword.lower())})"
+      )
 
 
 GROUP_FILTERS = [
@@ -140,25 +139,27 @@ def query_testcase(project_name, crash_type, crash_state, security_flag,
 
 def attach_testcases(rows):
   """Attach testcase to each crash."""
-  testcases = {}
-  for index, row in enumerate(rows):
-    testcases[index] = {
-        'open_testcase':
-            query_testcase(
-                project_name=row['projectName'],
-                crash_type=row['crashType'],
-                crash_state=row['crashState'],
-                security_flag=row['isSecurity'],
-                is_open=True),
-        'closed_testcase':
-            query_testcase(
-                project_name=row['projectName'],
-                crash_type=row['crashType'],
-                crash_state=row['crashState'],
-                security_flag=row['isSecurity'],
-                is_open=False)
-    }
-
+  testcases = {
+      index: {
+          'open_testcase':
+          query_testcase(
+              project_name=row['projectName'],
+              crash_type=row['crashType'],
+              crash_state=row['crashState'],
+              security_flag=row['isSecurity'],
+              is_open=True,
+          ),
+          'closed_testcase':
+          query_testcase(
+              project_name=row['projectName'],
+              crash_type=row['crashType'],
+              crash_state=row['crashState'],
+              security_flag=row['isSecurity'],
+              is_open=False,
+          ),
+      }
+      for index, row in enumerate(rows)
+  }
   for index, row in enumerate(rows):
     testcase = (list(testcases[index]['open_testcase']) or
                 list(testcases[index]['closed_testcase']) or [None])[0]

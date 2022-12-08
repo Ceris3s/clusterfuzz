@@ -168,10 +168,7 @@ class IssueTracker(issue_tracker.IssueTracker):
 
   def get_issue(self, issue_id):
     jira_issue = self._itm.get_issue(issue_id)
-    if not jira_issue:
-      return None
-
-    return Issue(self._itm, jira_issue)
+    return Issue(self._itm, jira_issue) if jira_issue else None
 
   def find_issues(self, keywords=None, only_open=False):
     """Find issues."""
@@ -189,8 +186,7 @@ class IssueTracker(issue_tracker.IssueTracker):
       return None
 
     config = db_config.get()
-    url = urljoin(config.jira_url, f'/browse/{str(issue.key)}')
-    return url
+    return urljoin(config.jira_url, f'/browse/{str(issue.key)}')
 
   def find_issues_url(self, keywords=None, only_open=None):
     search_text = 'project = {project_name}' + _get_search_text(keywords)
@@ -213,16 +209,9 @@ def _get_issue_tracker_manager_for_project(project_name):
 def get_issue_tracker(project_name, config):  # pylint: disable=unused-argument
   """Get the issue tracker for the project name."""
   itm = _get_issue_tracker_manager_for_project(project_name)
-  if itm is None:
-    return None
-
-  return IssueTracker(itm)
+  return None if itm is None else IssueTracker(itm)
 
 
 def _get_search_text(keywords):
   """Get search text."""
-  search_text = ''
-  for keyword in keywords:
-    search_text += ' AND text ~ "%s"' % keyword
-
-  return search_text
+  return ''.join(f' AND text ~ "{keyword}"' for keyword in keywords)

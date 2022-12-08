@@ -13,6 +13,7 @@
 # limitations under the License.
 """Functions for testcase management."""
 
+
 import base64
 import collections
 import datetime
@@ -57,7 +58,7 @@ INFO_FILE_EXTENSION = '.info'
 IPCDUMP_EXTENSION = '.ipcdump'
 REPRODUCIBILITY_FACTOR = 0.5
 SEARCH_INDEX_TESTCASES_DIRNAME = 'common'
-SEARCH_INDEX_BUNDLE_PREFIX = '__%s_' % SEARCH_INDEX_TESTCASES_DIRNAME
+SEARCH_INDEX_BUNDLE_PREFIX = f'__{SEARCH_INDEX_TESTCASES_DIRNAME}_'
 TESTCASE_LIST_FILENAME = 'files.info'
 
 CHROME_URL_LOAD_REGEX = re.compile(
@@ -80,8 +81,6 @@ BAD_STATE_HINTS = [
 
 class TestcaseManagerError(Exception):
   """Base exception."""
-
-
 class TargetNotFoundError(TestcaseManagerError):
   """Error when a fuzz target is not found."""
 
@@ -112,13 +111,9 @@ def get_testcases_from_directories(directories):
   testcase_paths = []
   max_testcases = environment.get_value('MAX_TESTCASES')
 
-  generators = []
-  for directory in directories:
-    if not directory.strip():
-      continue
-
-    generators.append(shell.walk(directory))
-
+  generators = [
+      shell.walk(directory) for directory in directories if directory.strip()
+  ]
   for generator in generators:
     for structure in generator:
       base_directory = structure[0]
@@ -154,10 +149,7 @@ def is_testcase_resource(filename):
   if filename.startswith(RESOURCES_PREFIX):
     return True
 
-  if filename.endswith(COVERAGE_SUFFIX):
-    return True
-
-  return False
+  return bool(filename.endswith(COVERAGE_SUFFIX))
 
 
 def remove_testcases_from_directories(directories):
@@ -250,7 +242,7 @@ def get_resource_dependencies(testcase_absolute_path, test_prefix=FUZZ_PREFIX):
   # Check to see if this test case lists all resources in a resources file.
   if testcase_filename.startswith(test_prefix):
     stripped_testcase_name = testcase_filename[len(test_prefix):]
-    resources_filename = '%s%s' % (RESOURCES_PREFIX, stripped_testcase_name)
+    resources_filename = f'{RESOURCES_PREFIX}{stripped_testcase_name}'
     resources_file_path = os.path.join(base_directory, resources_filename)
     resources += read_resource_list(resources_file_path)
 
@@ -272,7 +264,7 @@ def get_command_line_flags(testcase_path):
   arguments = environment.get_value('APP_ARGS')
   additional_arguments = get_additional_command_line_flags(testcase_path)
   if arguments:
-    arguments += ' ' + additional_arguments
+    arguments += f' {additional_arguments}'
   else:
     arguments = additional_arguments
 
@@ -292,11 +284,10 @@ def get_additional_command_line_flags(testcase_path):
 
   # Gets the flags list from the flags file.
   stripped_testcase_name = testcase_filename[len(FUZZ_PREFIX):]
-  flags_filename = '%s%s' % (FLAGS_PREFIX, stripped_testcase_name)
+  flags_filename = f'{FLAGS_PREFIX}{stripped_testcase_name}'
   flags_file_path = os.path.join(os.path.dirname(testcase_path), flags_filename)
-  flags_file_content = utils.read_data_from_file(
-      flags_file_path, eval_data=False)
-  if flags_file_content:
+  if flags_file_content := utils.read_data_from_file(
+      flags_file_path, eval_data=False):
     additional_command_line_flags += ' ' + flags_file_content.decode('utf-8')
   return additional_command_line_flags.strip()
 
@@ -348,9 +339,8 @@ def get_resource_paths(output):
     if not match:
       continue
 
-    local_path = convert_dependency_url_to_local_path(match.group(2))
-    if local_path:
-      logs.log('Detected resource: %s.' % local_path)
+    if local_path := convert_dependency_url_to_local_path(match.group(2)):
+      logs.log(f'Detected resource: {local_path}.')
       resource_paths.add(local_path)
 
   return list(resource_paths)
@@ -361,7 +351,7 @@ def convert_dependency_url_to_local_path(url):
   # Bot-specific import.
   from clusterfuzz._internal.bot.webserver import http_server
 
-  logs.log('Process dependency: %s.' % url)
+  logs.log(f'Process dependency: {url}.')
   file_match = FILE_URL_REGEX.search(url)
   http_match = HTTP_URL_REGEX.search(url)
   platform = environment.platform()
@@ -369,11 +359,11 @@ def convert_dependency_url_to_local_path(url):
   local_path = None
   if file_match:
     file_path = file_match.group(1)
-    logs.log('Detected file dependency: %s.' % file_path)
+    logs.log(f'Detected file dependency: {file_path}.')
     if platform == 'WINDOWS':
       local_path = file_path
     else:
-      local_path = '/' + file_path
+      local_path = f'/{file_path}'
 
       # Convert remote to local path for android.
       if environment.is_android():
@@ -384,14 +374,14 @@ def convert_dependency_url_to_local_path(url):
 
   elif http_match:
     relative_http_path = os.path.sep + http_match.group(2)
-    logs.log('Detected http dependency: %s.' % relative_http_path)
+    logs.log(f'Detected http dependency: {relative_http_path}.')
     local_path = http_server.get_absolute_testcase_file(relative_http_path)
     if not local_path:
       # This needs to be a warning since in many cases, it is actually a
       # non-existent path. For others, we need to add the directory aliases in
       # file http_server.py.
       logs.log_warn(
-          'Unable to find server resource %s, skipping.' % relative_http_path)
+          f'Unable to find server resource {relative_http_path}, skipping.')
 
   if local_path:
     local_path = utils.normalize_path(local_path)
@@ -401,8 +391,7 @@ def convert_dependency_url_to_local_path(url):
 
 def _get_testcase_time(testcase_path):
   """Returns the timestamp of a testcase."""
-  stats = fuzzer_stats.TestcaseRun.read_from_disk(testcase_path)
-  if stats:
+  if stats := fuzzer_stats.TestcaseRun.read_from_disk(testcase_path):
     return datetime.datetime.utcfromtimestamp(float(stats.timestamp))
 
   return None
@@ -541,7 +530,7 @@ def engine_reproduce(engine_impl: engine.Engine, target_name, testcase_path,
   build_dir = environment.get_value('BUILD_DIR')
   target_path = engine_common.find_fuzzer_path(build_dir, target_name)
   if not target_path:
-    raise TargetNotFoundError('Failed to find target ' + target_name)
+    raise TargetNotFoundError(f'Failed to find target {target_name}')
 
   result = engine_impl.reproduce(target_path, testcase_path, list(arguments),
                                  timeout)
@@ -570,11 +559,7 @@ class TestcaseRunner(object):
     self._gestures = gestures
     self._needs_http = needs_http
 
-    if fuzz_target:
-      engine_impl = engine.get(fuzz_target.engine)
-    else:
-      engine_impl = None
-
+    engine_impl = engine.get(fuzz_target.engine) if fuzz_target else None
     # TODO(ochang): Make this hard fail once migration to new fuzzing pipeline
     # is complete.
     if fuzz_target and engine_impl:
@@ -711,9 +696,9 @@ class TestcaseRunner(object):
     """Test to see if a crash is fully reproducible or is a one-time crasher."""
     self._pre_run_cleanup()
 
-    reproducible_crash_target_count = retries * REPRODUCIBILITY_FACTOR
     round_number = 0
     crash_count = 0
+    reproducible_crash_target_count = retries * REPRODUCIBILITY_FACTOR
     for round_number in range(1, retries + 1):
       # Bail out early if there is no hope of finding a reproducible crash.
       if (retries - round_number + crash_count + 1 <
@@ -738,8 +723,8 @@ class TestcaseRunner(object):
       crash_comparer = CrashComparer(state.crash_state, expected_state)
       if not crash_comparer.is_similar():
         logs.log(
-            'Detected a crash with an unrelated state: '
-            'Expected(%s), Found(%s).' % (expected_state, state.crash_state))
+            f'Detected a crash with an unrelated state: Expected({expected_state}), Found({state.crash_state}).'
+        )
         continue
 
       crash_count += 1
@@ -846,11 +831,10 @@ def prepare_log_for_upload(symbolized_output, return_code):
 
 def upload_log(log, log_time):
   """Upload the output into corresponding GCS logs bucket."""
-  fuzz_logs_bucket = environment.get_value('FUZZ_LOGS_BUCKET')
-  if not fuzz_logs_bucket:
+  if fuzz_logs_bucket := environment.get_value('FUZZ_LOGS_BUCKET'):
+    fuzzer_logs.upload_to_logs(fuzz_logs_bucket, log, time=log_time)
+  else:
     return
-
-  fuzzer_logs.upload_to_logs(fuzz_logs_bucket, log, time=log_time)
 
 
 def get_user_profile_directory(user_profile_index):
@@ -863,10 +847,7 @@ def get_user_profile_directory(user_profile_index):
 
   # Create path to user profile directory.
   user_profile_directory_name = 'user_profile_%d' % user_profile_index
-  user_profile_directory = os.path.join(user_profile_root_directory,
-                                        user_profile_directory_name)
-
-  return user_profile_directory
+  return os.path.join(user_profile_root_directory, user_profile_directory_name)
 
 
 def get_command_line_for_application(file_to_run='',
@@ -911,7 +892,7 @@ def get_command_line_for_application(file_to_run='',
   # Handle spaces in APP_PATH.
   # If application path has spaces, then we need to quote it.
   if ' ' in app_path:
-    app_path = '"%s"' % app_path
+    app_path = f'"{app_path}"'
 
   interpreter = shell.get_interpreter(app_name)
   if get_arguments_only:
@@ -920,7 +901,7 @@ def get_command_line_for_application(file_to_run='',
     app_path = ''
   elif interpreter:
     # Prepend command with interpreter if it is a script.
-    app_path = '%s %s' % (interpreter, app_path)
+    app_path = f'{interpreter} {app_path}'
 
   # Start creating the command line.
   command = ''
@@ -954,7 +935,7 @@ def get_command_line_for_application(file_to_run='',
       # command - just use app_name.
       if os.path.basename(launcher) != app_name:
         launcher_with_interpreter = shell.get_execute_command(launcher)
-        command += launcher_with_interpreter + ' '
+        command += f'{launcher_with_interpreter} '
     elif is_android:
       # Android-specific testcase path fixup for fuzzers that don't rely on
       # launcher scripts.
@@ -992,17 +973,17 @@ def get_command_line_for_application(file_to_run='',
   all_app_args = ''
 
   if user_profile_argument:
-    all_app_args += ' %s=%s' % (user_profile_argument, user_profile_directory)
+    all_app_args += f' {user_profile_argument}={user_profile_directory}'
   if extension_argument and EXTENSIONS_PREFIX in testcase_filename:
-    all_app_args += ' %s=%s' % (extension_argument, testcase_directory)
+    all_app_args += f' {extension_argument}={testcase_directory}'
   if apps_argument and APPS_PREFIX in testcase_filename:
-    all_app_args += ' %s=%s' % (apps_argument, testcase_directory)
+    all_app_args += f' {apps_argument}={testcase_directory}'
   if window_argument:
-    all_app_args += ' %s' % window_argument
+    all_app_args += f' {window_argument}'
   if additional_command_line_flags:
-    all_app_args += ' %s' % additional_command_line_flags.strip()
+    all_app_args += f' {additional_command_line_flags.strip()}'
   if app_args:
-    all_app_args += ' %s' % app_args.strip()
+    all_app_args += f' {app_args.strip()}'
   # Append %TESTCASE% at end if no testcase pattern is found in app arguments.
   if not utils.sub_string_exists_in(
       ['%TESTCASE%', '%TESTCASE_FILE_URL%', '%TESTCASE_HTTP_URL%'],
@@ -1012,11 +993,11 @@ def get_command_line_for_application(file_to_run='',
 
   # Build the actual command to run now.
   if debugger:
-    command += '%s ' % debugger
+    command += f'{debugger} '
   if app_path:
     command += app_path
   if all_app_args:
-    command += ' %s' % all_app_args
+    command += f' {all_app_args}'
   command = command.replace('%APP_DIR%', app_directory)
   command = command.replace('%CRASH_STACKTRACES_DIR%', crash_stacks_directory)
   command = command.replace('%DEVICE_TESTCASES_DIR%',
@@ -1103,12 +1084,8 @@ def check_for_bad_build(job_type, crash_revision):
   # Create a blank command line with no file to run and no http.
   command = get_command_line_for_application(file_to_run='', needs_http=False)
 
-  # When checking for bad builds, we use the default window size.
-  # We don't want to pick a custom size since it can potentially cause a
-  # startup crash and cause a build to be detected incorrectly as bad.
-  default_window_argument = environment.get_value('WINDOW_ARG', '')
-  if default_window_argument:
-    command = command.replace(' %s' % default_window_argument, '')
+  if default_window_argument := environment.get_value('WINDOW_ARG', ''):
+    command = command.replace(f' {default_window_argument}', '')
 
   # TSAN is slow, and boots slow on first startup. Increase the warmup
   # timeout for this case.
@@ -1136,9 +1113,9 @@ def check_for_bad_build(job_type, crash_revision):
   #    load shared library. So, ignore state for comparison.
   # 2. Ignore leaks as they don't block a build from reporting regular crashes
   #    and also don't impact regression range calculations.
-  if (crash_result.is_crash(ignore_state=True) and
-      not crash_result.should_ignore() and
-      not crash_result.get_type() in ['Direct-leak', 'Indirect-leak']):
+  if (crash_result.is_crash(ignore_state=True)
+      and not crash_result.should_ignore()
+      and crash_result.get_type() not in ['Direct-leak', 'Indirect-leak']):
     is_bad_build = True
     build_run_console_output = utils.get_crash_stacktrace_output(
         command,

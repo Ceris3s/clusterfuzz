@@ -27,7 +27,8 @@ class Handler(base_handler.Handler):
     testcase = helpers.get_testcase(testcase_id)
     issue_url = helpers.get_or_exit(
         lambda: issue_tracker_utils.get_issue_url(testcase),
-        'Issue tracker for testcase (id=%s) is not found.' % testcase_id,
-        'Failed to get the issue tracker URL.')
+        f'Issue tracker for testcase (id={testcase_id}) is not found.',
+        'Failed to get the issue tracker URL.',
+    )
 
     return self.redirect(issue_url)

@@ -122,15 +122,11 @@ def update_environment_for_job(environment_string):
   if environment.get_value('SHARE_BUILD_WITH_JOB_TYPE'):
     environment.set_value('CUSTOM_BINARY', True)
 
-  # Allow the default FUZZ_TEST_TIMEOUT and MAX_TESTCASES to be overridden on
-  # machines that are preempted more often.
-  fuzz_test_timeout_override = environment.get_value(
-      'FUZZ_TEST_TIMEOUT_OVERRIDE')
-  if fuzz_test_timeout_override:
+  if fuzz_test_timeout_override := environment.get_value(
+      'FUZZ_TEST_TIMEOUT_OVERRIDE'):
     environment.set_value('FUZZ_TEST_TIMEOUT', fuzz_test_timeout_override)
 
-  max_testcases_override = environment.get_value('MAX_TESTCASES_OVERRIDE')
-  if max_testcases_override:
+  if max_testcases_override := environment.get_value('MAX_TESTCASES_OVERRIDE'):
     environment.set_value('MAX_TESTCASES', max_testcases_override)
 
   if environment.is_trusted_host():
@@ -187,19 +183,18 @@ def start_web_server_if_needed():
 def run_command(task_name, task_argument, job_name):
   """Run the command."""
   if task_name not in COMMAND_MAP:
-    logs.log_error("Unknown command '%s'" % task_name)
+    logs.log_error(f"Unknown command '{task_name}'")
     return
 
   task_module = COMMAND_MAP[task_name]
 
   # If applicable, ensure this is the only instance of the task running.
   task_state_name = ' '.join([task_name, task_argument, job_name])
-  if should_update_task_status(task_name):
-    if not data_handler.update_task_status(task_state_name,
-                                           data_types.TaskState.STARTED):
-      logs.log('Another instance of "{}" already '
-               'running, exiting.'.format(task_state_name))
-      raise AlreadyRunningError
+  if should_update_task_status(
+      task_name) and not data_handler.update_task_status(
+          task_state_name, data_types.TaskState.STARTED):
+    logs.log(f'Another instance of "{task_state_name}" already running, exiting.')
+    raise AlreadyRunningError
 
   try:
     task_module.execute_task(task_argument, job_name)
@@ -207,7 +202,7 @@ def run_command(task_name, task_argument, job_name):
     # It is difficult to try to handle the case where a test case is deleted
     # during processing. Rather than trying to catch by checking every point
     # where a test case is reloaded from the datastore, just abort the task.
-    logs.log_warn('Test case %s no longer exists.' % task_argument)
+    logs.log_warn(f'Test case {task_argument} no longer exists.')
   except BaseException:
     # On any other exceptions, update state to reflect error and re-raise.
     if should_update_task_status(task_name):
@@ -227,7 +222,7 @@ def run_command(task_name, task_argument, job_name):
 @set_task_payload
 def process_command(task):
   """Figures out what to do with the given task and executes the command."""
-  logs.log("Executing command '%s'" % task.payload())
+  logs.log(f"Executing command '{task.payload()}'")
   if not task.payload().strip():
     logs.log_error('Empty task received.')
     return
@@ -245,11 +240,11 @@ def process_command(task):
     # Job might be removed. In that case, we don't want an exception
     # raised and causing this task to be retried by another bot.
     if not job:
-      logs.log_error("Job '%s' not found." % job_name)
+      logs.log_error(f"Job '{job_name}' not found.")
       return
 
     if not job.platform:
-      error_string = "No platform set for job '%s'" % job_name
+      error_string = f"No platform set for job '{job_name}'"
       logs.log_error(error_string)
       raise errors.BadStateError(error_string)
 
@@ -260,8 +255,8 @@ def process_command(task):
     if job_queue_suffix != bot_queue_suffix:
       # This happens rarely, store this as a hard exception.
       logs.log_error(
-          'Wrong platform for job %s: job queue [%s], bot queue [%s].' %
-          (job_name, job_queue_suffix, bot_queue_suffix))
+          f'Wrong platform for job {job_name}: job queue [{job_queue_suffix}], bot queue [{bot_queue_suffix}].'
+      )
 
       # Try to recreate the job in the correct task queue.
       new_queue = (
@@ -326,20 +321,15 @@ def process_command(task):
     if task_name == 'minimize':
       # Let jobs specify a different job and fuzzer to minimize with.
       job_environment = job.get_environment()
-      minimize_job_override = job_environment.get('MINIMIZE_JOB_OVERRIDE')
-      if minimize_job_override:
-        minimize_job = data_types.Job.query(
-            data_types.Job.name == minimize_job_override).get()
-        if minimize_job:
+      if minimize_job_override := job_environment.get('MINIMIZE_JOB_OVERRIDE'):
+        if minimize_job := data_types.Job.query(
+            data_types.Job.name == minimize_job_override).get():
           environment.set_value('JOB_NAME', minimize_job_override)
           environment_string = minimize_job.get_environment_string()
           environment_string += '\nORIGINAL_JOB_NAME = %s\n' % job_name
           job_name = minimize_job_override
         else:
-          logs.log_error(
-              'Job for minimization not found: %s.' % minimize_job_override)
-          # Fallback to using own job for minimization.
-
+          logs.log_error(f'Job for minimization not found: {minimize_job_override}.')
       minimize_fuzzer_override = job_environment.get('MINIMIZE_FUZZER_OVERRIDE')
       fuzzer_name = minimize_fuzzer_override or fuzzer_name
 

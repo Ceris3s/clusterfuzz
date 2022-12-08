@@ -44,9 +44,10 @@ def send(to_email, subject, html_content):
     sg = SendGridAPIClient(sendgrid_api_key)
     response = sg.send(message)
     logs.log(
-        'Sent email to %s.' % to_email,
+        f'Sent email to {to_email}.',
         status_code=response.status_code,
         body=response.body,
-        headers=response.headers)
+        headers=response.headers,
+    )
   except Exception:
-    logs.log_error('Failed to send email to %s.' % to_email)
+    logs.log_error(f'Failed to send email to {to_email}.')

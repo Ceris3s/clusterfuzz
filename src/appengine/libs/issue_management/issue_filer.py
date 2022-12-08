@@ -87,10 +87,7 @@ def platform_substitution(label, testcase, _):
   elif testcase.platform_id:
     platform = testcase.platform_id.split(':')[0].capitalize()
 
-  if not platform:
-    return []
-
-  return [label.replace('%PLATFORM%', platform)]
+  return [label.replace('%PLATFORM%', platform)] if platform else []
 
 
 def current_date():
@@ -195,9 +192,9 @@ def update_issue_impact_labels(testcase, issue):
     return
 
   if existing_impact != data_types.SecurityImpact.MISSING:
-    issue.labels.remove('Security_Impact-' + impact_to_string(existing_impact))
+    issue.labels.remove(f'Security_Impact-{impact_to_string(existing_impact)}')
 
-  issue.labels.add('Security_Impact-' + impact_to_string(new_impact))
+  issue.labels.add(f'Security_Impact-{impact_to_string(new_impact)}')
 
 
 def update_issue_foundin_labels(testcase, issue):
@@ -214,7 +211,7 @@ def update_issue_foundin_labels(testcase, issue):
   for found_milestone in milestones_foundin:
     if f'foundin-{found_milestone}' in issue.labels:
       continue
-    issue.labels.add('FoundIn-' + found_milestone)
+    issue.labels.add(f'FoundIn-{found_milestone}')
 
 
 def apply_substitutions(policy, label, testcase, security_severity=None):
@@ -250,14 +247,9 @@ def get_memory_tool_labels(stacktrace):
   """Distinguish memory tools used and return corresponding labels."""
   # Remove stack frames and paths to source code files. This helps to avoid
   # confusion when function names or source paths contain a memory tool token.
-  data = ''
-  for line in stacktrace.split('\n'):
-    if STACKFRAME_LINE_REGEX.match(line):
-      continue
-    data += line + '\n'
-
-  labels = [t['label'] for t in MEMORY_TOOLS_LABELS if t['token'] in data]
-  return labels
+  data = ''.join(line + '\n' for line in stacktrace.split('\n')
+                 if not STACKFRAME_LINE_REGEX.match(line))
+  return [t['label'] for t in MEMORY_TOOLS_LABELS if t['token'] in data]
 
 
 def _get_from_metadata(testcase, name):
@@ -339,10 +331,8 @@ def file_issue(testcase,
   for component in automatic_components:
     issue.components.add(component)
 
-  # Add issue assignee from the job definition and fuzzer.
-  automatic_assignee = data_handler.get_additional_values_for_variable(
-      'AUTOMATIC_ASSIGNEE', testcase.job_type, testcase.fuzzer_name)
-  if automatic_assignee:
+  if automatic_assignee := data_handler.get_additional_values_for_variable(
+      'AUTOMATIC_ASSIGNEE', testcase.job_type, testcase.fuzzer_name):
     issue.status = policy.status('assigned')
     issue.assignee = automatic_assignee[0]
   else:
@@ -427,22 +417,21 @@ def file_issue(testcase,
   try:
     issue.save()
   except Exception as e:
-    if policy.fallback_component:
-      # If a fallback component is set, try clearing the existing components
-      # and filing again.
-      # Also save the exception we recovered from.
-      recovered_exception = e
-      issue.components.clear()
-      issue.components.add(policy.fallback_component)
-
-      if policy.fallback_policy_message:
-        message = policy.fallback_policy_message.replace(
-            '%COMPONENTS%', ' '.join(metadata_components))
-        issue.body += '\n\n' + message
-      issue.save()
-    else:
+    if not policy.fallback_component:
       raise
 
+    # If a fallback component is set, try clearing the existing components
+    # and filing again.
+    # Also save the exception we recovered from.
+    recovered_exception = e
+    issue.components.clear()
+    issue.components.add(policy.fallback_component)
+
+    if policy.fallback_policy_message:
+      message = policy.fallback_policy_message.replace(
+          '%COMPONENTS%', ' '.join(metadata_components))
+      issue.body += '\n\n' + message
+    issue.save()
   # Update the testcase with this newly created issue.
   testcase.bug_information = str(issue.id)
   testcase.put()

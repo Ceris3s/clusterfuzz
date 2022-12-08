@@ -24,10 +24,7 @@ SCRIPT_DIR = os.path.join('bot', 'init')
 
 def _extension(platform):
   """Get the init extension for a platform."""
-  if platform == 'windows':
-    return '.ps1'
-
-  return '.bash'
+  return '.ps1' if platform == 'windows' else '.bash'
 
 
 def run():
@@ -40,7 +37,7 @@ def run():
 
   os.chmod(script_path, 0o750)
   if script_path.endswith('.ps1'):
-    cmd = 'powershell.exe ' + script_path
+    cmd = f'powershell.exe {script_path}'
   else:
     cmd = script_path
 

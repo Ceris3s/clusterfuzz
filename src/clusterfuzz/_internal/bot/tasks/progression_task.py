@@ -52,9 +52,10 @@ def _write_to_bigquery(testcase, progression_range_start,
 def _log_output(revision, crash_result):
   """Log process output."""
   logs.log(
-      'Testing %s.' % revision,
+      f'Testing {revision}.',
       revision=revision,
-      output=crash_result.get_stacktrace(symbolized=True))
+      output=crash_result.get_stacktrace(symbolized=True),
+  )
 
 
 def _check_fixed_for_custom_binary(testcase, job_type, testcase_file_path):
@@ -134,8 +135,7 @@ def _update_issue_metadata(testcase):
   for key, value in six.iteritems(metadata):
     old_value = testcase.get_metadata(key)
     if old_value != value:
-      logs.log('Updating issue metadata for {} from {} to {}.'.format(
-          key, old_value, value))
+      logs.log(f'Updating issue metadata for {key} from {old_value} to {value}.')
       testcase.set_metadata(key, value)
 
 
@@ -186,7 +186,7 @@ def _save_fixed_range(testcase_id, min_revision, max_revision,
   testcase.open = False
 
   data_handler.update_progression_completion_metadata(
-      testcase, max_revision, message='fixed in range r%s' % testcase.fixed)
+      testcase, max_revision, message=f'fixed in range r{testcase.fixed}')
   _write_to_bigquery(testcase, min_revision, max_revision)
 
   _store_testcase_for_regression_testing(testcase, testcase_file_path)
@@ -230,7 +230,7 @@ def find_fixed_range(testcase_id, job_type):
     return
 
   if testcase.fixed:
-    logs.log_error('Fixed range is already set as %s, skip.' % testcase.fixed)
+    logs.log_error(f'Fixed range is already set as {testcase.fixed}, skip.')
     return
 
   # Setup testcase and its dependencies.
@@ -315,7 +315,8 @@ def find_fixed_range(testcase_id, job_type):
         testcase,
         max_revision,
         is_crash=True,
-        message='still crashes on latest revision r%s' % max_revision)
+        message=f'still crashes on latest revision r{max_revision}',
+    )
 
     # Since we've verified that the test case is still crashing, clear out any
     # metadata indicating potential flake from previous runs.

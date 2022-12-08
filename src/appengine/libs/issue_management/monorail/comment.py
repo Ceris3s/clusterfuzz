@@ -46,11 +46,7 @@ class Comment(object):
     return [label for label in self.labels if regex.match(label)]
 
   def get_labels_by_prefix(self, prefix):
-    return self.get_labels_matching('%s.*' % prefix)
+    return self.get_labels_matching(f'{prefix}.*')
 
   def has_label(self, value):
-    for label in self.labels:
-      if label.lower() == value.lower():
-        return True
-
-    return False
+    return any(label.lower() == value.lower() for label in self.labels)

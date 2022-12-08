@@ -171,8 +171,7 @@ def _evict_build(current_build_dir):
   if not least_recently_used:
     return False
 
-  logs.log(
-      'Deleting build %s to save space.' % least_recently_used.base_build_dir)
+  logs.log(f'Deleting build {least_recently_used.base_build_dir} to save space.')
   least_recently_used.delete()
 
   return True
@@ -205,11 +204,11 @@ def _get_file_match_callback():
     # File match regex is only applicable for libFuzzer and afl fuzz targets.
     return None
 
-  logs.log('Extracting only files for target %s.' % fuzz_target)
+  logs.log(f'Extracting only files for target {fuzz_target}.')
 
   allowlisted_names = tuple([fuzz_target] + FUZZ_TARGET_ALLOWLISTED_PREFIXES)
   blocklisted_extensions = tuple(
-      '.' + extension for extension in FUZZ_TARGET_EXCLUDED_EXTENSIONS)
+      f'.{extension}' for extension in FUZZ_TARGET_EXCLUDED_EXTENSIONS)
 
   def file_match_callback(filepath):
     """Returns True if any part (ie: directory or file) of the |filepath| starts
@@ -225,14 +224,7 @@ def _get_file_match_callback():
 
     basename = os.path.basename(filepath)
     # Does it have a blocklisted extension?
-    if basename.endswith(blocklisted_extensions):
-      return False
-
-    # Does it have an extension?
-    if '.' in basename:
-      return True
-
-    return False
+    return False if basename.endswith(blocklisted_extensions) else '.' in basename
 
   return file_match_callback
 
@@ -240,7 +232,7 @@ def _get_file_match_callback():
 def _remove_scheme(bucket_path):
   """Remove scheme from the bucket path."""
   if '://' not in bucket_path:
-    raise BuildManagerException('Invalid bucket path: ' + bucket_path)
+    raise BuildManagerException(f'Invalid bucket path: {bucket_path}')
 
   return bucket_path.split('://')[1]
 
@@ -260,7 +252,7 @@ def _get_build_directory(bucket_path, job_name):
     file_pattern = utils.remove_sub_strings(file_pattern, BUILD_TYPE_SUBSTRINGS)
 
     file_pattern_hash = utils.string_hash(file_pattern)
-    job_directory = '%s_%s' % (bucket_path, file_pattern_hash)
+    job_directory = f'{bucket_path}_{file_pattern_hash}'
   else:
     job_directory = job_name
 
@@ -271,7 +263,7 @@ def _set_random_fuzz_target_for_fuzzing_if_needed(fuzz_targets, target_weights):
   """Sets a random fuzz target for fuzzing."""
   fuzz_target = environment.get_value('FUZZ_TARGET')
   if fuzz_target:
-    logs.log('Use previously picked fuzz target %s for fuzzing.' % fuzz_target)
+    logs.log(f'Use previously picked fuzz target {fuzz_target} for fuzzing.')
     return fuzz_target
 
   if not environment.is_engine_fuzzer_job():
@@ -287,7 +279,7 @@ def _set_random_fuzz_target_for_fuzzing_if_needed(fuzz_targets, target_weights):
   fuzz_target = fuzzer_selection.select_fuzz_target(fuzz_targets,
                                                     target_weights)
   environment.set_value('FUZZ_TARGET', fuzz_target)
-  logs.log('Picked fuzz target %s for fuzzing.' % fuzz_target)
+  logs.log(f'Picked fuzz target {fuzz_target} for fuzzing.')
 
   return fuzz_target
 
@@ -314,7 +306,7 @@ def set_environment_vars(search_directories, app_path='APP_PATH',
                          env_prefix=''):
   """Set build-related environment variables (APP_PATH, APP_DIR etc) by walking
   through the build directory."""
-  app_name = environment.get_value(env_prefix + 'APP_NAME')
+  app_name = environment.get_value(f'{env_prefix}APP_NAME')
   llvm_symbolizer_filename = environment.get_executable_filename(
       'llvm-symbolizer')
   llvm_symbolizer_path = None
@@ -325,7 +317,7 @@ def set_environment_vars(search_directories, app_path='APP_PATH',
   app_directory = None
 
   # Chromium specific folder to ignore.
-  initialexe_folder_path = '%sinitialexe' % os.path.sep
+  initialexe_folder_path = f'{os.path.sep}initialexe'
 
   for search_directory in search_directories:
     for root, _, files in shell.walk(search_directory):
@@ -348,17 +340,17 @@ def set_environment_vars(search_directories, app_path='APP_PATH',
             os.chmod(absolute_file_path, 0o750)
 
           environment.set_value(env_prefix + app_path, absolute_file_path)
-          environment.set_value(env_prefix + 'APP_DIR', app_directory)
+          environment.set_value(f'{env_prefix}APP_DIR', app_directory)
 
         if not gn_args_path and filename == gn_args_filename:
           gn_args_path = os.path.join(root, gn_args_filename)
-          environment.set_value(env_prefix + 'GN_ARGS_PATH', gn_args_path)
+          environment.set_value(f'{env_prefix}GN_ARGS_PATH', gn_args_path)
 
         if (not llvm_symbolizer_path and
             filename == llvm_symbolizer_filename and
             not environment.get_value('USE_DEFAULT_LLVM_SYMBOLIZER')):
           llvm_symbolizer_path = os.path.join(root, llvm_symbolizer_filename)
-          environment.set_value(env_prefix + 'LLVM_SYMBOLIZER_PATH',
+          environment.set_value(f'{env_prefix}LLVM_SYMBOLIZER_PATH',
                                 llvm_symbolizer_path)
 
 
@@ -387,7 +379,7 @@ class Build(BaseBuild):
     super().__init__(base_build_dir)
     self.revision = revision
     self.build_prefix = build_prefix
-    self.env_prefix = build_prefix + '_' if build_prefix else ''
+    self.env_prefix = f'{build_prefix}_' if build_prefix else ''
 
   def _reset_cwd(self):
     """Reset current working directory. Needed to clean up build
@@ -412,9 +404,9 @@ class Build(BaseBuild):
     if self.base_build_dir:
       _setup_build_directories(self.base_build_dir)
 
-    environment.set_value(self.env_prefix + 'APP_REVISION', self.revision)
-    environment.set_value(self.env_prefix + 'APP_PATH', '')
-    environment.set_value(self.env_prefix + 'APP_PATH_DEBUG', '')
+    environment.set_value(f'{self.env_prefix}APP_REVISION', self.revision)
+    environment.set_value(f'{self.env_prefix}APP_PATH', '')
+    environment.set_value(f'{self.env_prefix}APP_PATH_DEBUG', '')
 
   def _patch_rpath(self, binary_path, instrumented_library_paths):
     """Patch rpaths of a binary to point to instrumented libraries"""
@@ -437,12 +429,10 @@ class Build(BaseBuild):
       for target_path in fuzzer_utils.get_fuzz_targets(self.build_dir):
         self._patch_rpath(target_path, instrumented_library_paths)
     else:
-      app_path = environment.get_value('APP_PATH')
-      if app_path:
+      if app_path := environment.get_value('APP_PATH'):
         self._patch_rpath(app_path, instrumented_library_paths)
 
-      app_path_debug = environment.get_value('APP_PATH_DEBUG')
-      if app_path_debug:
+      if app_path_debug := environment.get_value('APP_PATH_DEBUG'):
         self._patch_rpath(app_path_debug, instrumented_library_paths)
 
   def _post_setup_success(self, update_revision=True):
@@ -455,9 +445,8 @@ class Build(BaseBuild):
       timestamp_file_path = os.path.join(self.base_build_dir, TIMESTAMP_FILE)
       utils.write_data_to_file(time.time(), timestamp_file_path)
 
-    # Update rpaths if necessary (for e.g. instrumented libraries).
-    instrumented_library_paths = environment.get_instrumented_libraries_paths()
-    if instrumented_library_paths:
+    if (instrumented_library_paths :=
+        environment.get_instrumented_libraries_paths()):
       self._patch_rpaths(instrumented_library_paths)
 
   def _unpack_build(self,
@@ -473,9 +462,9 @@ class Build(BaseBuild):
     utils.python_gc()
 
     # Remove the current build.
-    logs.log('Removing build directory %s.' % build_dir)
+    logs.log(f'Removing build directory {build_dir}.')
     if not shell.remove_directory(build_dir, recreate=True):
-      logs.log_error('Unable to clear build directory %s.' % build_dir)
+      logs.log_error(f'Unable to clear build directory {build_dir}.')
       _handle_unrecoverable_error_on_windows()
       return False
 
@@ -495,12 +484,12 @@ class Build(BaseBuild):
           'Failed to make space for download. '
           'Cleared all data directories to free up space, exiting.')
 
-    logs.log('Downloading build from url %s.' % build_url)
+    logs.log(f'Downloading build from url {build_url}.')
     try:
       storage.copy_file_from(
           build_url, build_local_archive, use_cache=use_cache)
     except:
-      logs.log_error('Unable to download build url %s.' % build_url)
+      logs.log_error(f'Unable to download build url {build_url}.')
       return False
 
     unpack_everything = environment.get_value(
@@ -531,7 +520,7 @@ class Build(BaseBuild):
           'Cleared all data directories to free up space, exiting.')
 
     # Unpack the local build archive.
-    logs.log('Unpacking build archive %s.' % build_local_archive)
+    logs.log(f'Unpacking build archive {build_local_archive}.')
     trusted = not utils.is_oss_fuzz()
     try:
       archive.unpack(
@@ -540,7 +529,7 @@ class Build(BaseBuild):
           trusted=trusted,
           file_match_callback=file_match_callback)
     except:
-      logs.log_error('Unable to unpack build archive %s.' % build_local_archive)
+      logs.log_error(f'Unable to unpack build archive {build_local_archive}.')
       return False
 
     if unpack_everything:
@@ -574,8 +563,7 @@ class Build(BaseBuild):
     for archive_file in archive.iterator(archive_path):
       if fuzzer_utils.is_fuzz_target_local(archive_file.name,
                                            archive_file.handle):
-        fuzz_target = os.path.splitext(os.path.basename(archive_file.name))[0]
-        yield fuzz_target
+        yield os.path.splitext(os.path.basename(archive_file.name))[0]
 
   def _get_fuzz_targets_from_dir(self, build_dir):
     """Get iterator of fuzz targets from build dir."""
@@ -641,11 +629,13 @@ class Build(BaseBuild):
     # in case of errors. app_path can be APP_PATH or APP_PATH_DEBUG.
     app_path = self.env_prefix + app_path
     environment.set_value(app_path, '')
-    environment.set_value(self.env_prefix + 'APP_DIR', '')
-    environment.set_value(self.env_prefix + 'BUILD_DIR', build_dir)
-    environment.set_value(self.env_prefix + 'GN_ARGS_PATH', '')
-    environment.set_value(self.env_prefix + 'LLVM_SYMBOLIZER_PATH',
-                          environment.get_default_tool_path('llvm-symbolizer'))
+    environment.set_value(f'{self.env_prefix}APP_DIR', '')
+    environment.set_value(f'{self.env_prefix}BUILD_DIR', build_dir)
+    environment.set_value(f'{self.env_prefix}GN_ARGS_PATH', '')
+    environment.set_value(
+        f'{self.env_prefix}LLVM_SYMBOLIZER_PATH',
+        environment.get_default_tool_path('llvm-symbolizer'),
+    )
 
     # Initialize variables.
     fuzzer_directory = environment.get_value('FUZZER_DIR')
@@ -657,18 +647,16 @@ class Build(BaseBuild):
         search_directories, app_path=app_path, env_prefix=self.env_prefix)
 
     absolute_file_path = environment.get_value(app_path)
-    app_directory = environment.get_value(self.env_prefix + 'APP_DIR')
+    app_directory = environment.get_value(f'{self.env_prefix}APP_DIR')
 
     if not absolute_file_path:
       return
 
-    # Set the symlink if needed.
-    symbolic_link_target = environment.get_value(self.env_prefix +
-                                                 'SYMBOLIC_LINK')
-    if symbolic_link_target:
-      os.system('mkdir --parents %s' % os.path.dirname(symbolic_link_target))
-      os.system('rm %s' % symbolic_link_target)
-      os.system('ln -s %s %s' % (app_directory, symbolic_link_target))
+    if symbolic_link_target := environment.get_value(
+        f'{self.env_prefix}SYMBOLIC_LINK'):
+      os.system(f'mkdir --parents {os.path.dirname(symbolic_link_target)}')
+      os.system(f'rm {symbolic_link_target}')
+      os.system(f'ln -s {app_directory} {symbolic_link_target}')
 
     if utils.is_chromium():
       # Use deterministic fonts when available. See crbug.com/822737.
@@ -697,11 +685,7 @@ class RegularBuild(Build):
     super().__init__(base_build_dir, revision, build_prefix)
     self.build_url = build_url
 
-    if build_prefix:
-      self.build_dir_name = build_prefix.lower()
-    else:
-      self.build_dir_name = 'revisions'
-
+    self.build_dir_name = build_prefix.lower() if build_prefix else 'revisions'
     self._build_dir = os.path.join(self.base_build_dir, self.build_dir_name)
     self.target_weights = target_weights
 
@@ -712,7 +696,7 @@ class RegularBuild(Build):
   def setup(self):
     """Sets up build with a particular revision."""
     self._pre_setup()
-    environment.set_value(self.env_prefix + 'BUILD_URL', self.build_url)
+    environment.set_value(f'{self.env_prefix}BUILD_URL', self.build_url)
 
     logs.log('Retrieving build r%d.' % self.revision)
     build_update = not self.exists()
@@ -879,20 +863,14 @@ class SymbolizedBuild(Build):
       _handle_unrecoverable_error_on_windows()
       return False
 
-    if not self.release_build_url and not self.debug_build_url:
+    if self.release_build_url or self.debug_build_url:
+      return (False if self.release_build_url and not self._unpack_build(
+          self.base_build_dir, self.release_build_dir, self.release_build_url)
+              else bool(not self.debug_build_url or self._unpack_build(
+                  self.base_build_dir, self.debug_build_dir,
+                  self.debug_build_url)))
+    else:
       return False
-
-    if self.release_build_url:
-      if not self._unpack_build(self.base_build_dir, self.release_build_dir,
-                                self.release_build_url):
-        return False
-
-    if self.debug_build_url:
-      if not self._unpack_build(self.base_build_dir, self.debug_build_dir,
-                                self.debug_build_url):
-        return False
-
-    return True
 
   def setup(self):
     self._pre_setup()
@@ -938,7 +916,7 @@ class ProductionBuild(Build):
   def setup(self):
     """Sets up build with a particular revision."""
     self._pre_setup()
-    logs.log('Retrieving %s branch (%s).' % (self.build_type, self.revision))
+    logs.log(f'Retrieving {self.build_type} branch ({self.revision}).')
     environment.set_value('BUILD_URL', self.build_url)
 
     version_file = os.path.join(self.build_dir, 'VERSION')
@@ -950,7 +928,7 @@ class ProductionBuild(Build):
         return False
 
       revisions.write_revision_to_revision_file(version_file, self.revision)
-      logs.log('Retrieved %s branch (%s).' % (self.build_type, self.revision))
+      logs.log(f'Retrieved {self.build_type} branch ({self.revision}).')
     else:
       logs.log('Build already exists.')
 
@@ -1004,8 +982,7 @@ class CustomBuild(Build):
       try:
         archive.unpack(build_local_archive, self.build_dir, trusted=True)
       except:
-        logs.log_error(
-            'Unable to unpack build archive %s.' % build_local_archive)
+        logs.log_error(f'Unable to unpack build archive {build_local_archive}.')
         return False
 
       # Remove the archive.
@@ -1072,24 +1049,22 @@ def _sort_build_urls_by_revision(build_urls, bucket_path, reverse):
   filename_by_revision_dict = {}
 
   _, base_path = storage.get_bucket_name_and_path(base_url)
-  base_path_with_seperator = base_path + '/' if base_path else ''
+  base_path_with_seperator = f'{base_path}/' if base_path else ''
 
   for build_url in build_urls:
     match_pattern = '{base_path_with_seperator}({file_pattern})'.format(
         base_path_with_seperator=base_path_with_seperator,
         file_pattern=file_pattern)
-    match = re.match(match_pattern, build_url)
-    if match:
-      filename = match.group(1)
-      revision = match.group(2)
+    if match := re.match(match_pattern, build_url):
+      filename = match[1]
+      revision = match[2]
 
       # Ensure that there are no duplicate revisions.
       if revision in filename_by_revision_dict:
         job_name = environment.get_value('JOB_NAME')
         raise errors.BadStateError(
-            'Found duplicate revision %s when processing bucket. '
-            'Bucket path is probably malformed for job %s.' % (revision,
-                                                               job_name))
+            f'Found duplicate revision {revision} when processing bucket. Bucket path is probably malformed for job {job_name}.'
+        )
 
       filename_by_revision_dict[revision] = filename
 
@@ -1106,7 +1081,7 @@ def _sort_build_urls_by_revision(build_urls, bucket_path, reverse):
   sorted_build_urls = []
   for revision in sorted_revisions:
     filename = filename_by_revision_dict[revision]
-    sorted_build_urls.append('%s/%s' % (base_url, filename))
+    sorted_build_urls.append(f'{base_url}/{filename}')
 
   return sorted_build_urls
 
@@ -1121,7 +1096,7 @@ def get_build_urls_list(bucket_path, reverse=True):
     build_urls = list(storage.list_blobs(base_url))
   else:
     keys_directory = environment.get_value('BUILD_URLS_DIR')
-    keys_filename = '%s.list' % utils.string_hash(bucket_path)
+    keys_filename = f'{utils.string_hash(bucket_path)}.list'
     keys_file_path = os.path.join(keys_directory, keys_filename)
 
     # For one task, keys file that is cached locally should be re-used.
@@ -1133,31 +1108,29 @@ def get_build_urls_list(bucket_path, reverse=True):
         for path in storage.list_blobs(base_url):
           f.write(path + '\n')
 
-    content = utils.read_data_from_file(
-        keys_file_path, eval_data=False).decode('utf-8')
-    if not content:
-      return []
+    if content := utils.read_data_from_file(
+        keys_file_path, eval_data=False).decode('utf-8'):
+      build_urls = content.splitlines()
 
-    build_urls = content.splitlines()
+    else:
+      return []
 
   return _sort_build_urls_by_revision(build_urls, bucket_path, reverse)
 
 
 def get_primary_bucket_path():
   """Get the main bucket path for the current job."""
-  release_build_bucket_path = environment.get_value('RELEASE_BUILD_BUCKET_PATH')
-  if release_build_bucket_path:
+  if release_build_bucket_path := environment.get_value(
+      'RELEASE_BUILD_BUCKET_PATH'):
     return release_build_bucket_path
 
-  fuzz_target_build_bucket_path = get_bucket_path(
-      'FUZZ_TARGET_BUILD_BUCKET_PATH')
+  if fuzz_target_build_bucket_path := get_bucket_path(
+      'FUZZ_TARGET_BUILD_BUCKET_PATH'):
+    if fuzz_target := environment.get_value('FUZZ_TARGET'):
+      return _full_fuzz_target_path(fuzz_target_build_bucket_path, fuzz_target)
 
-  if fuzz_target_build_bucket_path:
-    fuzz_target = environment.get_value('FUZZ_TARGET')
-    if not fuzz_target:
+    else:
       raise BuildManagerException('FUZZ_TARGET is not defined.')
-
-    return _full_fuzz_target_path(fuzz_target_build_bucket_path, fuzz_target)
 
   raise BuildManagerException(
       'RELEASE_BUILD_BUCKET_PATH or FUZZ_TARGET_BUILD_BUCKET_PATH '
@@ -1177,9 +1150,8 @@ def get_revisions_list(bucket_path, testcase=None):
   # Parse the revisions out of the build urls.
   revision_list = []
   for url in revision_urls:
-    match = re.match(revision_pattern, url)
-    if match:
-      revision = revisions.convert_revision_to_integer(match.group(1))
+    if match := re.match(revision_pattern, url):
+      revision = revisions.convert_revision_to_integer(match[1])
       revision_list.append(revision)
 
   # Remove revisions for bad builds from the revision list.
@@ -1218,9 +1190,10 @@ def _get_targets_list(bucket_path):
 
   # Filter out targets which are not yet built.
   targets = data.decode('utf-8').splitlines()
-  listed_targets = set(
+  listed_targets = {
       os.path.basename(path.rstrip('/'))
-      for path in storage.list_blobs(bucket_dir_path, recursive=False))
+      for path in storage.list_blobs(bucket_dir_path, recursive=False)
+  }
   return [t for t in targets if _base_fuzz_target_name(t) in listed_targets]
 
 
@@ -1234,13 +1207,13 @@ def _setup_split_targets_build(bucket_path, target_weights, revision=None):
   targets_list = _get_targets_list(bucket_path)
   if not targets_list:
     raise BuildManagerException(
-        'No targets found in targets.list (path=%s).' % bucket_path)
+        f'No targets found in targets.list (path={bucket_path}).')
 
   fuzz_target = _set_random_fuzz_target_for_fuzzing_if_needed(
       targets_list, target_weights)
   if not fuzz_target:
     raise BuildManagerException(
-        'Failed to choose a fuzz target (path=%s).' % bucket_path)
+        f'Failed to choose a fuzz target (path={bucket_path}).')
 
   if fuzz_target not in targets_list:
     raise errors.BuildNotFoundError(revision, environment.get_value('JOB_NAME'))
@@ -1258,7 +1231,7 @@ def _get_latest_revision(bucket_paths):
   for bucket_path in bucket_paths:
     urls_list = get_build_urls_list(bucket_path)
     if not urls_list:
-      logs.log_error('Error getting list of build urls from %s.' % bucket_path)
+      logs.log_error(f'Error getting list of build urls from {bucket_path}.')
       return None
 
     build_urls.append(BuildUrls(bucket_path=bucket_path, urls_list=urls_list))
@@ -1273,7 +1246,7 @@ def _get_latest_revision(bucket_paths):
     if not match:
       continue
 
-    revision = revisions.convert_revision_to_integer(match.group(1))
+    revision = revisions.convert_revision_to_integer(match[1])
     if (not other_build_urls or all(
         revisions.find_build_url(url.bucket_path, url.urls_list, revision)
         for url in other_build_urls)):
@@ -1313,7 +1286,7 @@ def setup_regular_build(revision,
   build_urls = get_build_urls_list(bucket_path)
   job_type = environment.get_value('JOB_NAME')
   if not build_urls:
-    logs.log_error('Error getting build urls for job %s.' % job_type)
+    logs.log_error(f'Error getting build urls for job {job_type}.')
     return None
   build_url = revisions.find_build_url(bucket_path, build_urls, revision)
   if not build_url:
@@ -1342,9 +1315,7 @@ def setup_regular_build(revision,
       build_url,
       target_weights=target_weights,
       build_prefix=build_prefix)
-  if build.setup():
-    return build
-  return None
+  return build if build.setup() else None
 
 
 def setup_symbolized_builds(revision):
@@ -1360,8 +1331,8 @@ def setup_symbolized_builds(revision):
   # We should at least have a symbolized debug or release build.
   if not sym_release_build_urls and not sym_debug_build_urls:
     logs.log_error(
-        'Error getting list of symbolized build urls from (%s, %s).' %
-        (sym_release_build_bucket_path, sym_debug_build_bucket_path))
+        f'Error getting list of symbolized build urls from ({sym_release_build_bucket_path}, {sym_debug_build_bucket_path}).'
+    )
     return None
 
   sym_release_build_url = revisions.find_build_url(
@@ -1378,10 +1349,7 @@ def setup_symbolized_builds(revision):
 
   build = build_class(base_build_dir, revision, sym_release_build_url,
                       sym_debug_build_url)
-  if build.setup():
-    return build
-
-  return None
+  return build if build.setup() else None
 
 
 def setup_custom_binary(target_weights=None):
@@ -1416,10 +1384,7 @@ def setup_custom_binary(target_weights=None):
   if share_build_job_type:
     environment.set_value('JOB_NAME', old_job_name)
 
-  if build.setup():
-    return build
-
-  return None
+  return build if build.setup() else None
 
 
 def setup_production_build(build_type):
@@ -1433,13 +1398,12 @@ def setup_production_build(build_type):
   elif build_type == 'beta':
     build_bucket_path = environment.get_value('BETA_BUILD_BUCKET_PATH')
   else:
-    logs.log_error('Unknown build type %s.' % build_type)
+    logs.log_error(f'Unknown build type {build_type}.')
     return None
 
   build_urls = get_build_urls_list(build_bucket_path)
   if not build_urls:
-    logs.log_error(
-        'Error getting list of build urls from %s.' % build_bucket_path)
+    logs.log_error(f'Error getting list of build urls from {build_bucket_path}.')
     return None
 
   # First index is the latest build for that version.
@@ -1448,10 +1412,10 @@ def setup_production_build(build_type):
   v_match = re.match(version_pattern, build_url)
   if not v_match:
     logs.log_error(
-        'Unable to find version information from the build url %s.' % build_url)
+        f'Unable to find version information from the build url {build_url}.')
     return None
 
-  version = v_match.group(1)
+  version = v_match[1]
   base_build_dir = _base_build_dir(build_bucket_path)
 
   build_class = ProductionBuild
@@ -1461,38 +1425,26 @@ def setup_production_build(build_type):
 
   build = build_class(base_build_dir, version, build_url, build_type)
 
-  if build.setup():
-    return build
-
-  return None
+  return build if build.setup() else None
 
 
 def setup_system_binary():
   """Set up a build that we assume is already installed on the system."""
   system_binary_directory = environment.get_value('SYSTEM_BINARY_DIR', '')
   build = SystemBuild(system_binary_directory)
-  if build.setup():
-    return build
-
-  return None
+  return build if build.setup() else None
 
 
 def setup_build(revision=0, target_weights=None):
   """Set up a custom or regular build based on revision."""
-  # For custom binaries we always use the latest version. Revision is ignored.
-  custom_binary = environment.get_value('CUSTOM_BINARY')
-  if custom_binary:
+  if custom_binary := environment.get_value('CUSTOM_BINARY'):
     return setup_custom_binary(target_weights=target_weights)
 
-  # In this case, we assume the build is already installed on the system.
-  system_binary = environment.get_value('SYSTEM_BINARY_DIR')
-  if system_binary:
+  if system_binary := environment.get_value('SYSTEM_BINARY_DIR'):
     return setup_system_binary()
 
-  fuzz_target_build_bucket_path = get_bucket_path(
-      'FUZZ_TARGET_BUILD_BUCKET_PATH')
-
-  if fuzz_target_build_bucket_path:
+  if fuzz_target_build_bucket_path := get_bucket_path(
+      'FUZZ_TARGET_BUILD_BUCKET_PATH'):
     # Split fuzz target build.
     return _setup_split_targets_build(
         fuzz_target_build_bucket_path, target_weights, revision=revision)
@@ -1504,8 +1456,7 @@ def setup_build(revision=0, target_weights=None):
   # If no revision is provided, we default to a trunk build.
   bucket_paths = []
   for env_var in DEFAULT_BUILD_BUCKET_PATH_ENV_VARS:
-    bucket_path = get_bucket_path(env_var)
-    if bucket_path:
+    if bucket_path := get_bucket_path(env_var):
       bucket_paths.append(bucket_path)
 
   return setup_trunk_build(bucket_paths, target_weights=target_weights)
@@ -1534,23 +1485,21 @@ def has_symbolized_builds():
 
 def _set_rpaths_chrpath(binary_path, rpaths):
   """Set rpaths using chrpath."""
-  chrpath = environment.get_default_tool_path('chrpath')
-  if not chrpath:
+  if chrpath := environment.get_default_tool_path('chrpath'):
+    subprocess.check_output(
+        [chrpath, '-r', ':'.join(rpaths), binary_path], stderr=subprocess.PIPE)
+  else:
     raise BuildManagerException('Failed to find chrpath')
-
-  subprocess.check_output(
-      [chrpath, '-r', ':'.join(rpaths), binary_path], stderr=subprocess.PIPE)
 
 
 def _set_rpaths_patchelf(binary_path, rpaths):
   """Set rpaths using patchelf."""
-  patchelf = spawn.find_executable('patchelf')
-  if not patchelf:
+  if patchelf := spawn.find_executable('patchelf'):
+    subprocess.check_output(
+        [patchelf, '--force-rpath', '--set-rpath', ':'.join(rpaths), binary_path],
+        stderr=subprocess.PIPE)
+  else:
     raise BuildManagerException('Failed to find patchelf')
-
-  subprocess.check_output(
-      [patchelf, '--force-rpath', '--set-rpath', ':'.join(rpaths), binary_path],
-      stderr=subprocess.PIPE)
 
 
 def set_rpaths(binary_path, rpaths):

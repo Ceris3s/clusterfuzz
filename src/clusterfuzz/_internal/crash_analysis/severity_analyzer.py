@@ -76,26 +76,23 @@ def get_security_severity(crash_type, crash_output, job_name,
                           requires_gestures):
   """Convenience function to get the security severity of a crash."""
   analyzer = None
-  severity_analyzer_name = environment.get_value('SECURITY_SEVERITY_ANALYZER')
-
-  if severity_analyzer_name:
+  if severity_analyzer_name := environment.get_value(
+      'SECURITY_SEVERITY_ANALYZER'):
     analyzer = get_analyzer(severity_analyzer_name)
   else:
-    is_chrome = 'chrome' in job_name or 'content_shell' in job_name
     is_sanitizer = ('_asan' in job_name or '_cfi' in job_name or
                     '_lsan' in job_name or '_msan' in job_name or
                     '_tsan' in job_name or '_ubsan' in job_name)
 
     if is_sanitizer:
+      is_chrome = 'chrome' in job_name or 'content_shell' in job_name
       if is_chrome:
         analyzer = get_analyzer('sanitizer_chrome')
       else:
         analyzer = get_analyzer('sanitizer_generic')
 
-  if not analyzer:
-    return None
-
-  return analyzer.analyze(crash_type, crash_output, requires_gestures)
+  return (analyzer.analyze(crash_type, crash_output, requires_gestures)
+          if analyzer else None)
 
 
 class SeverityAnalyzerSanitizer(object):
@@ -104,10 +101,9 @@ class SeverityAnalyzerSanitizer(object):
   def analyze(self, crash_type, crash_output, requires_gestures):
     """Return a security severity based on the ASan crash output."""
 
-    manual_severity_match = re.search(
-        r'FuzzerSecurityIssue(Critical|High|Medium|Low)', crash_output)
-    if manual_severity_match:
-      manual_severity = manual_severity_match.group(1)
+    if manual_severity_match := re.search(
+        r'FuzzerSecurityIssue(Critical|High|Medium|Low)', crash_output):
+      manual_severity = manual_severity_match[1]
       return string_to_severity(manual_severity)
 
     crash_category = crash_type.split()[0]
@@ -190,7 +186,7 @@ class SeverityAnalyzerSanitizerChrome(SeverityAnalyzerSanitizer):
       if not match:
         continue
 
-      process_type = match.group(1).lower()
+      process_type = match[1].lower()
       break
 
     return process_type
@@ -218,7 +214,4 @@ def string_to_severity(severity):
       'low': SecuritySeverity.LOW,
   }
 
-  if severity.lower() in severity_map:
-    return severity_map[severity.lower()]
-
-  return SecuritySeverity.MISSING
+  return severity_map.get(severity.lower(), SecuritySeverity.MISSING)

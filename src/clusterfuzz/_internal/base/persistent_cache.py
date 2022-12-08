@@ -73,14 +73,14 @@ def get_value(key, default_value=None, constructor=None):
     with open(value_path, 'rb') as f:
       value_str = f.read()
   except IOError:
-    logs.log_error('Failed to read %s from persistent cache.' % key)
+    logs.log_error(f'Failed to read {key} from persistent cache.')
     return default_value
 
   try:
     value = json_utils.loads(value_str)
   except Exception:
-    logs.log_warn('Non-serializable value read from cache key %s: "%s"' %
-                  (key, value_str))
+    logs.log_warn(
+        f'Non-serializable value read from cache key {key}: "{value_str}"')
     return default_value
 
   if constructor:
@@ -99,7 +99,7 @@ def get_value_file_path(key):
   """Return the full path to the value file for the given key."""
   # Not using utils.string_hash here to avoid a circular dependency.
   # TODO(mbarbella): Avoid this once utils.py is broken into multiple files.
-  key_filename = 'cache-%s.json' % hashlib.sha1(str(key).encode()).hexdigest()
+  key_filename = f'cache-{hashlib.sha1(str(key).encode()).hexdigest()}.json'
   cache_directory_path = environment.get_value('CACHE_DIR')
   return os.path.join(cache_directory_path, key_filename)
 
@@ -112,15 +112,14 @@ def set_value(key, value, persist_across_reboots=False):
   try:
     value_str = json_utils.dumps(value)
   except Exception:
-    logs.log_error(
-        'Non-serializable value stored to cache key %s: "%s"' % (key, value))
+    logs.log_error(f'Non-serializable value stored to cache key {key}: "{value}"')
     return
 
   try:
     with open(value_path, 'wb') as f:
       f.write(value_str.encode())
   except IOError:
-    logs.log_error('Failed to write %s to persistent cache.' % key)
+    logs.log_error(f'Failed to write {key} to persistent cache.')
 
   if not persist_across_reboots:
     return
@@ -132,5 +131,4 @@ def set_value(key, value, persist_across_reboots=False):
   try:
     open(persist_value_path, 'wb').close()
   except IOError:
-    logs.log_error(
-        'Failed to write presistent metadata file for cache key %s' % key)
+    logs.log_error(f'Failed to write presistent metadata file for cache key {key}')

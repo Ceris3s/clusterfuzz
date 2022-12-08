@@ -33,18 +33,16 @@ def _fuzzers_for_job(job_type, include_parents):
   Returns:
     A list of fuzzer names.
   """
-  fuzzers = []
   engine_fuzzers = data_handler.get_fuzzing_engines()
 
-  for fuzzer in data_types.Fuzzer.query(data_types.Fuzzer.jobs == job_type):
-    # Add this if we're including all parents or this is not an engine fuzzer
-    # with fuzz targets.
-    if include_parents or fuzzer.name not in engine_fuzzers:
-      fuzzers.append(fuzzer.name)
-
-  for target_job in fuzz_target_utils.get_fuzz_target_jobs(job=job_type):
-    fuzzers.append(target_job.fuzz_target_name)
-
+  fuzzers = [
+      fuzzer.name
+      for fuzzer in data_types.Fuzzer.query(data_types.Fuzzer.jobs == job_type)
+      if include_parents or fuzzer.name not in engine_fuzzers
+  ]
+  fuzzers.extend(
+      target_job.fuzz_target_name
+      for target_job in fuzz_target_utils.get_fuzz_target_jobs(job=job_type))
   return sorted(fuzzers)
 
 
@@ -129,14 +127,10 @@ def _is_entity_allowed_for_user(user_email, name, entity_kind):
 
   permissions = _get_permissions_query_for_user(user_email, entity_kind)
 
-  for permission in permissions:
-    if permission.is_prefix:
-      if name.startswith(permission.entity_name):
-        return True
-    elif permission.entity_name == name:
-      return True
-
-  return False
+  return any(
+      permission.is_prefix and name.startswith(permission.entity_name)
+      or not permission.is_prefix and permission.entity_name == name
+      for permission in permissions)
 
 
 def _allowed_users_for_entity(name, entity_kind, auto_cc=None):

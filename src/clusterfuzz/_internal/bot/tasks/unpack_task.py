@@ -33,7 +33,7 @@ def execute_task(metadata_id, job_type):
   """Unpack a bundled testcase archive and create analyze jobs for each item."""
   metadata = ndb.Key(data_types.BundledArchiveMetadata, int(metadata_id)).get()
   if not metadata:
-    logs.log_error('Invalid bundle metadata id %s.' % metadata_id)
+    logs.log_error(f'Invalid bundle metadata id {metadata_id}.')
     return
 
   bot_name = environment.get_value('BOT_NAME')
@@ -41,12 +41,12 @@ def execute_task(metadata_id, job_type):
       data_types.TestcaseUploadMetadata.blobstore_key ==
       metadata.blobstore_key).get()
   if not upload_metadata:
-    logs.log_error('Invalid upload metadata key %s.' % metadata.blobstore_key)
+    logs.log_error(f'Invalid upload metadata key {metadata.blobstore_key}.')
     return
 
   job = data_types.Job.query(data_types.Job.name == metadata.job_type).get()
   if not job:
-    logs.log_error('Invalid job_type %s.' % metadata.job_type)
+    logs.log_error(f'Invalid job_type {metadata.job_type}.')
     return
 
   # Update the upload metadata with this bot name.
@@ -89,15 +89,13 @@ def execute_task(metadata_id, job_type):
       continue
 
     try:
-      file_handle = open(absolute_file_path, 'rb')
-      blob_key = blobs.write_blob(file_handle)
-      file_handle.close()
+      with open(absolute_file_path, 'rb') as file_handle:
+        blob_key = blobs.write_blob(file_handle)
     except:
       blob_key = None
 
     if not blob_key:
-      logs.log_error(
-          'Could not write testcase %s to blobstore.' % absolute_file_path)
+      logs.log_error(f'Could not write testcase {absolute_file_path} to blobstore.')
       continue
 
     data_handler.create_user_uploaded_testcase(

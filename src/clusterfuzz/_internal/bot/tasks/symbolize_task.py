@@ -168,10 +168,7 @@ def execute_task(testcase_id, job_type):
         'Unable to reproduce crash, skipping '
         'stacktrace update')
   else:
-    # Switch build url to use the less-optimized symbolized build with better
-    # stacktrace.
-    build_url = environment.get_value('BUILD_URL')
-    if build_url:
+    if build_url := environment.get_value('BUILD_URL'):
       testcase.set_metadata('build_url', build_url, update_testcase=False)
 
     data_handler.update_testcase_comment(testcase,

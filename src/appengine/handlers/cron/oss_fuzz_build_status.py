@@ -13,6 +13,7 @@
 # limitations under the License.
 """Cron for checking OSS-Fuzz builds status."""
 
+
 import datetime
 import json
 import re
@@ -29,8 +30,8 @@ from libs import helpers
 from libs.issue_management import issue_tracker_utils
 
 BUCKET_URL = 'https://oss-fuzz-build-logs.storage.googleapis.com'
-FUZZING_STATUS_URL = BUCKET_URL + '/status.json'
-COVERAGE_STATUS_URL = BUCKET_URL + '/status-coverage.json'
+FUZZING_STATUS_URL = f'{BUCKET_URL}/status.json'
+COVERAGE_STATUS_URL = f'{BUCKET_URL}/status-coverage.json'
 
 FUZZING_BUILD_TYPE = 'fuzzing'
 COVERAGE_BUILD_TYPE = 'coverage'
@@ -89,7 +90,7 @@ def _get_oss_fuzz_project(project_name):
 
 def _get_build_link(build_id):
   """Return a link to the build log."""
-  return BUCKET_URL + '/log-' + build_id + '.txt'
+  return f'{BUCKET_URL}/log-{build_id}.txt'
 
 
 def _get_ndb_key(project_name, build_type):
@@ -98,7 +99,7 @@ def _get_ndb_key(project_name, build_type):
     return project_name
 
   # Use build type suffix for the auxiliary build (e.g. coverage).
-  return '%s-%s' % (project_name, build_type)
+  return f'{project_name}-{build_type}'
 
 
 def create_build_failure(project_name, failure, build_type):
@@ -129,7 +130,7 @@ def get_build_time(build):
   stripped_timestamp = TIMESTAMP_PATTERN.match(build['finish_time'])
   if not stripped_timestamp:
     logs.log_error(
-        'Invalid timestamp %s for %s.' % (build['finish_time'], build['name']))
+        f"Invalid timestamp {build['finish_time']} for {build['name']}.")
     return None
 
   return datetime.datetime.strptime(
@@ -147,7 +148,7 @@ def file_bug(issue_tracker, project_name, build_id, ccs, build_type):
   issue.body = _get_issue_body(project_name, build_id, build_type)
   issue.status = 'New'
   issue.labels.add('Type-Build-Failure')
-  issue.labels.add('Proj-' + project_name)
+  issue.labels.add(f'Proj-{project_name}')
 
   for cc in ccs:
     issue.ccs.add(cc)
@@ -158,8 +159,9 @@ def file_bug(issue_tracker, project_name, build_id, ccs, build_type):
 
 def close_bug(issue_tracker, issue_id, project_name):
   """Close a build failure bug."""
-  logs.log('Closing build failure bug (project=%s, issue_id=%s).' %
-           (project_name, issue_id))
+  logs.log(
+      f'Closing build failure bug (project={project_name}, issue_id={issue_id}).'
+  )
 
   issue = issue_tracker.get_original_issue(issue_id)
   issue.status = 'Verified'
@@ -190,11 +192,11 @@ class Handler(base_handler.Handler):
       raise OssFuzzBuildStatusException('Failed to get issue tracker.')
 
     for project in projects:
-      project_name = project['name']
       builds = project['history']
       if not builds:
         continue
 
+      project_name = project['name']
       build_failure = get_build_failure(project_name, build_type)
       if not build_failure:
         continue
@@ -204,9 +206,9 @@ class Handler(base_handler.Handler):
         continue
 
       if build_failure.last_checked_timestamp >= get_build_time(build):
-        logs.log_error('Latest successful build time for %s in %s config is '
-                       'older than or equal to last failure time.' %
-                       (project_name, build_type))
+        logs.log_error(
+            f'Latest successful build time for {project_name} in {build_type} config is older than or equal to last failure time.'
+        )
         continue
 
       if build_failure.issue_id is not None:
@@ -255,8 +257,7 @@ class Handler(base_handler.Handler):
         if build_failure.issue_id is None:
           oss_fuzz_project = _get_oss_fuzz_project(project_name)
           if not oss_fuzz_project:
-            logs.log(
-                'Project %s is disabled, skipping bug filing.' % project_name)
+            logs.log(f'Project {project_name} is disabled, skipping bug filing.')
             continue
 
           build_failure.issue_id = file_bug(issue_tracker, project_name,

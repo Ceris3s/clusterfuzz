@@ -128,11 +128,8 @@ def generate_new_testcase_mutations(corpus_directory,
         generation_timeout)
 
   # If new mutations are successfully generated, return true.
-  if shell.get_directory_file_count(
-      new_testcase_mutations_directory) > pre_mutations_filecount:
-    return True
-
-  return False
+  return (shell.get_directory_file_count(new_testcase_mutations_directory) >
+          pre_mutations_filecount)
 
 
 # Filename length limit on ext4.
@@ -143,10 +140,7 @@ RADAMSA_FILENAME_REGEX = re.compile(r'radamsa-\d+-(.*)', re.DOTALL)
 
 def get_radamsa_output_filename(initial_filename, i):
   """Get the name of a file mutated by radamsa."""
-  # Don't add the radamsa prefix to a file that already has it to avoid hitting
-  # filename/path length limits.
-  match = RADAMSA_FILENAME_REGEX.search(initial_filename)
-  if match:
+  if match := RADAMSA_FILENAME_REGEX.search(initial_filename):
     base_filename = match.group(1)
   else:
     base_filename = initial_filename
@@ -297,7 +291,7 @@ def find_fuzzer_path(build_directory, fuzzer_name):
     # configuration when doing variant task testing (e.g. Android on-device
     # fuzz target might not exist on host). In this case, treat it similar to
     # target not found by returning None.
-    logs.log_warn('No build directory found for fuzzer: %s' % fuzzer_name)
+    logs.log_warn(f'No build directory found for fuzzer: {fuzzer_name}')
     return None
 
   if environment.platform() == 'FUCHSIA':
@@ -307,13 +301,10 @@ def find_fuzzer_path(build_directory, fuzzer_name):
   if environment.is_android_kernel():
     return os.path.join(build_directory, 'syzkaller', 'bin', 'syz-manager')
 
-  # TODO(ochang): This is necessary for legacy testcases, which include the
-  # project prefix in arguments. Remove this in the near future.
-  project_name = environment.get_value('PROJECT_NAME')
-  legacy_name_prefix = u''
-  if project_name:
-    legacy_name_prefix = project_name + u'_'
-
+  if project_name := environment.get_value('PROJECT_NAME'):
+    legacy_name_prefix = f'{project_name}_'
+  else:
+    legacy_name_prefix = u''
   fuzzer_filename = environment.get_executable_filename(fuzzer_name)
   for root, _, files in shell.walk(build_directory):
     for filename in files:
@@ -325,8 +316,9 @@ def find_fuzzer_path(build_directory, fuzzer_name):
   # that do not have that fuzz target. It can also happen when a host sends a
   # message to an untrusted worker that just restarted and lost information on
   # build directory.
-  logs.log_warn('Fuzzer: %s not found in build_directory: %s.' %
-                (fuzzer_name, build_directory))
+  logs.log_warn(
+      f'Fuzzer: {fuzzer_name} not found in build_directory: {build_directory}.'
+  )
   return None
 
 
@@ -463,20 +455,16 @@ def get_all_issue_metadata(fuzz_target_path):
   """Get issue related metadata for a target."""
   metadata = {}
 
-  issue_labels = get_issue_labels(fuzz_target_path)
-  if issue_labels:
+  if issue_labels := get_issue_labels(fuzz_target_path):
     metadata['issue_labels'] = ','.join(issue_labels)
 
-  issue_components = get_issue_components(fuzz_target_path)
-  if issue_components:
+  if issue_components := get_issue_components(fuzz_target_path):
     metadata['issue_components'] = ','.join(issue_components)
 
-  issue_owners = get_issue_owners(fuzz_target_path)
-  if issue_owners:
+  if issue_owners := get_issue_owners(fuzz_target_path):
     metadata['issue_owners'] = ','.join(issue_owners)
 
-  issue_metadata = get_additional_issue_metadata(fuzz_target_path)
-  if issue_metadata:
+  if issue_metadata := get_additional_issue_metadata(fuzz_target_path):
     metadata['issue_metadata'] = issue_metadata
 
   return metadata
@@ -495,7 +483,7 @@ def get_all_issue_metadata_for_testcase(testcase):
   build_dir = environment.get_value('BUILD_DIR')
   target_path = find_fuzzer_path(build_dir, fuzz_target.binary)
   if not target_path:
-    logs.log_error('Failed to find target path for ' + fuzz_target.binary)
+    logs.log_error(f'Failed to find target path for {fuzz_target.binary}')
     return None
 
   return get_all_issue_metadata(target_path)
@@ -518,10 +506,10 @@ def format_fuzzing_strategies(fuzzing_strategies):
   else:
     # New format.
     assert isinstance(fuzzing_strategies, dict)
-    value = ','.join('{}:{}'.format(key, value)
-                     for key, value in six.iteritems(fuzzing_strategies))
+    value = ','.join(
+        f'{key}:{value}' for key, value in six.iteritems(fuzzing_strategies))
 
-  return 'cf::fuzzing_strategies: ' + value
+  return f'cf::fuzzing_strategies: {value}'
 
 
 def random_choice(sequence):
@@ -539,7 +527,7 @@ def recreate_directory(directory_path):
   """Delete directory if exists, create empty directory. Throw an exception if
   either fails."""
   if not shell.remove_directory(directory_path, recreate=True):
-    raise Exception('Failed to recreate directory: ' + directory_path)
+    raise Exception(f'Failed to recreate directory: {directory_path}')
 
 
 def strip_minijail_command(command, fuzzer_path):
@@ -577,25 +565,21 @@ class MinijailEngineFuzzerRunner(minijail.MinijailProcessRunner):
       Path to testcase within chroot.
     """
     testcase_directory, testcase_name = os.path.split(testcase_path)
-    binding = self.chroot.get_binding(testcase_directory)
-    if binding:
+    if binding := self.chroot.get_binding(testcase_directory):
       # The host directory that contains this testcase is bound in the chroot.
       yield os.path.join(binding.dest_path, testcase_name)
       return
     # Copy the testcase into the chroot (temporarily).
     shutil.copy(testcase_path, self.chroot.directory)
     copied_testcase_path = os.path.join(self.chroot.directory, testcase_name)
-    yield '/' + testcase_name
+    yield f'/{testcase_name}'
     # Cleanup
     os.remove(copied_testcase_path)
 
 
 def signal_term_handler(sig, frame):  # pylint: disable=unused-argument
-  try:
+  with contextlib.suppress(IOError):
     print('SIGTERMed')
-  except IOError:  # Pipe may already be closed and we may not be able to print.
-    pass
-
   new_process.kill_process_tree(os.getpid())
   sys.exit(0)
 
@@ -606,19 +590,21 @@ def get_seed_corpus_path(fuzz_target_path):
   archive_path_without_extension = fuzzer_utils.get_supporting_file(
       fuzz_target_path, SEED_CORPUS_ARCHIVE_SUFFIX)
   # Get all files that end with _seed_corpus.*
-  possible_archive_paths = set(glob.glob(archive_path_without_extension + '.*'))
+  possible_archive_paths = set(glob.glob(f'{archive_path_without_extension}.*'))
   # Now get a list of these that are valid seed corpus archives.
-  archive_paths = possible_archive_paths.intersection(
-      set(archive_path_without_extension + extension
-          for extension in archive.ARCHIVE_FILE_EXTENSIONS))
+  archive_paths = possible_archive_paths.intersection({
+      archive_path_without_extension + extension
+      for extension in archive.ARCHIVE_FILE_EXTENSIONS
+  })
 
   archive_paths = list(archive_paths)
   if not archive_paths:
     return None
 
   if len(archive_paths) > 1:
-    logs.log_error('Multiple seed corpuses exist for fuzz target %s: %s.' %
-                   (fuzz_target_path, ', '.join(archive_paths)))
+    logs.log_error(
+        f"Multiple seed corpuses exist for fuzz target {fuzz_target_path}: {', '.join(archive_paths)}."
+    )
 
   return archive_paths[0]
 
@@ -675,7 +661,7 @@ def unpack_seed_corpus_if_needed(fuzz_target_path,
     return
 
   if force_unpack:
-    logs.log('Forced unpack: %s.' % seed_corpus_archive_path)
+    logs.log(f'Forced unpack: {seed_corpus_archive_path}.')
 
   archive_iterator = archive.iterator(seed_corpus_archive_path)
   # Unpack seed corpus recursively into the root of the main corpus directory.

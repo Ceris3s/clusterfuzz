@@ -78,11 +78,10 @@ class BaseEditHandler(base_handler.GcsUploadHandler):
 
   def _read_to_bytesio(self, gcs_path):
     """Return a bytesio representing a GCS object."""
-    data = storage.read_data(gcs_path)
-    if not data:
+    if data := storage.read_data(gcs_path):
+      return io.BytesIO(data)
+    else:
       raise helpers.EarlyExitException('Failed to read uploaded archive.', 500)
-
-    return io.BytesIO(data)
 
   def _get_executable_path(self, upload_info):
     """Get executable path."""
@@ -113,13 +112,12 @@ class BaseEditHandler(base_handler.GcsUploadHandler):
       return launcher_script
 
     reader = self._read_to_bytesio(upload_info.gcs_path)
-    launcher_script = archive.get_first_file_matching(launcher_script, reader,
-                                                      upload_info.filename)
-    if not launcher_script:
+    if launcher_script := archive.get_first_file_matching(
+        launcher_script, reader, upload_info.filename):
+      return launcher_script
+    else:
       raise helpers.EarlyExitException(
           'Specified launcher script was not found in archive!', 400)
-
-    return launcher_script
 
   def _get_integer_value(self, key):
     """Check a numeric input value."""
@@ -201,7 +199,7 @@ class BaseEditHandler(base_handler.GcsUploadHandler):
 
     fuzzer_selection.update_mappings_for_fuzzer(fuzzer)
 
-    helpers.log('Uploaded fuzzer %s.' % fuzzer.name, helpers.MODIFY_OPERATION)
+    helpers.log(f'Uploaded fuzzer {fuzzer.name}.', helpers.MODIFY_OPERATION)
     return self.redirect('/fuzzers')
 
 
@@ -272,7 +270,7 @@ class DeleteHandler(base_handler.Handler):
     fuzzer_selection.update_mappings_for_fuzzer(fuzzer, mappings=[])
     fuzzer.key.delete()
 
-    helpers.log('Deleted fuzzer %s' % fuzzer.name, helpers.MODIFY_OPERATION)
+    helpers.log(f'Deleted fuzzer {fuzzer.name}', helpers.MODIFY_OPERATION)
     return self.redirect('/fuzzers')
 
 
@@ -283,12 +281,14 @@ class LogHandler(base_handler.Handler):
   def get(self, fuzzer_name):
     """Handle a get request."""
     helpers.log('LogHandler', fuzzer_name)
-    fuzzer = data_types.Fuzzer.query(
-        data_types.Fuzzer.name == fuzzer_name).get()
-    if not fuzzer:
+    if fuzzer := data_types.Fuzzer.query(
+        data_types.Fuzzer.name == fuzzer_name).get():
+      return self.render(
+          'viewer.html',
+          {
+              'title': f'Output for {fuzzer.name}',
+              'content': fuzzer.console_output,
+          },
+      )
+    else:
       raise helpers.EarlyExitException('Fuzzer not found.', 400)
-
-    return self.render('viewer.html', {
-        'title': 'Output for ' + fuzzer.name,
-        'content': fuzzer.console_output,
-    })

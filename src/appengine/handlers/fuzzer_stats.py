@@ -70,10 +70,7 @@ def _bigquery_type_to_charts_type(typename):
   if typename in ('integer', 'float'):
     return 'number'
 
-  if typename == 'timestamp':
-    return 'date'
-
-  return 'string'
+  return 'date' if typename == 'timestamp' else 'string'
 
 
 def _python_type_to_charts_type(type_value):
@@ -81,10 +78,7 @@ def _python_type_to_charts_type(type_value):
   if type_value in (int, float):
     return 'number'
 
-  if type_value == datetime.date:
-    return 'date'
-
-  return 'string'
+  return 'date' if type_value == datetime.date else 'string'
 
 
 def _parse_date(date_str):
@@ -114,13 +108,12 @@ def _parse_stats_column_fields(results, stats_columns, group_by, fuzzer, jobs):
 
   for column in columns:
     if isinstance(column, fuzzer_stats.QueryField):
-      key = '%s_%s' % (column.table_alias, column.select_alias)
+      key = f'{column.table_alias}_{column.select_alias}'
 
       for i, field_info in enumerate(results['schema']['fields']):
         # the 'name' field could either be "prefix_fieldname" or simply
         # "fieldname"
-        if (field_info['name'] == column.select_alias or
-            field_info['name'] == key):
+        if field_info['name'] in [column.select_alias, key]:
           result.append(
               QueryField(column, i,
                          _bigquery_type_to_charts_type(field_info['type']),
@@ -158,8 +151,7 @@ def _parse_group_by(group_by):
 
 def _get_fuzzer_or_engine(name):
   """Return fuzzer entity, or engine this target is part of."""
-  fuzz_target = data_handler.get_fuzz_target(name)
-  if fuzz_target:
+  if fuzz_target := data_handler.get_fuzz_target(name):
     name = fuzz_target.engine
 
   return data_types.Fuzzer.query(data_types.Fuzzer.name == name).get()
@@ -254,20 +246,15 @@ def _build_rows(result, columns, rows, group_by):
 
         first_column_value = first_column_value or cell['v']
       elif isinstance(column, BuiltinField):
-        data = column.field.get(group_by, first_column_value)
-        if data:
+        if data := column.field.get(group_by, first_column_value):
           formatted_value = data.value
           if data.link:
             link = (
                 _get_cloud_storage_link(data.link)
                 if data.link.startswith('gs://') else data.link)
-            formatted_value = '<a href="%s">%s</a>' % (link, data.value)
+            formatted_value = f'<a href="{link}">{data.value}</a>'
 
-          if data.sort_key is not None:
-            cell['v'] = data.sort_key
-          else:
-            cell['v'] = data.value
-
+          cell['v'] = data.sort_key if data.sort_key is not None else data.value
           if data.sort_key is not None or data.link:
             cell['f'] = formatted_value
         else:
@@ -297,13 +284,15 @@ def build_results(fuzzer, jobs, group_by, date_start, date_end):
     raise helpers.EarlyExitException('Missing end date.', 400)
 
   if datetime_end < utils.utcnow().date():
-    logs.log('Building results for older stats %s %s %s %s %s.' %
-             (fuzzer, jobs, group_by, date_start, date_end))
+    logs.log(
+        f'Building results for older stats {fuzzer} {jobs} {group_by} {date_start} {date_end}.'
+    )
 
     return _build_old_results(fuzzer, jobs, group_by, date_start, date_end)
 
-  logs.log('Building results for stats including today %s %s %s %s %s.' %
-           (fuzzer, jobs, group_by, date_start, date_end))
+  logs.log(
+      f'Building results for stats including today {fuzzer} {jobs} {group_by} {date_start} {date_end}.'
+  )
 
   return _build_todays_results(fuzzer, jobs, group_by, date_start, date_end)
 
@@ -334,11 +323,8 @@ def _build_results(fuzzer, jobs, group_by, date_start, date_end):
   if not fuzzer_entity:
     raise helpers.EarlyExitException('Fuzzer not found.', 404)
 
-  if fuzzer_entity.stats_columns:
-    stats_columns = fuzzer_entity.stats_columns
-  else:
-    stats_columns = fuzzer_stats.JobQuery.DEFAULT_FIELDS
-
+  stats_columns = (fuzzer_entity.stats_columns
+                   or fuzzer_stats.JobQuery.DEFAULT_FIELDS)
   group_by = _parse_group_by(group_by)
   if group_by is None:
     raise helpers.EarlyExitException('Invalid grouping.', 400)
@@ -455,19 +441,15 @@ class LoadHandler(base_handler.Handler):
   def _check_user_access_and_get_job_filter(self, fuzzer, job):
     """Check whether the current user has access to stats for the fuzzer or job.
     Returns a job filter that should be applied to the query."""
-    access_by_fuzzer_or_job = access.has_access(
-        fuzzer_name=fuzzer, job_type=job)
-    if access_by_fuzzer_or_job:
+    if access_by_fuzzer_or_job := access.has_access(
+        fuzzer_name=fuzzer, job_type=job):
       # User has full access to the fuzzer, or the specified job.
       # None means no filters => all jobs.
       return _get_filter_from_job(job)
 
     if not job:
-      # Job not specified and user doesn't have full access to the fuzzer. Check
-      # if the user has any allowed jobs and use that as a filter.
-      allowed_jobs = external_users.allowed_jobs_for_user(
-          helpers.get_user_email())
-      if allowed_jobs:
+      if allowed_jobs := external_users.allowed_jobs_for_user(
+          helpers.get_user_email()):
         return allowed_jobs
 
     raise helpers.AccessDeniedException()
@@ -502,9 +484,8 @@ class PreloadHandler(base_handler.Handler):
       fuzzer = data_types.Fuzzer.query(
           data_types.Fuzzer.name == fuzzer_name).get()
 
-      for job in fuzzer.jobs:
-        fuzzer_job_filters.append((fuzzer_name, _get_filter_from_job(job)))
-
+      fuzzer_job_filters.extend(
+          (fuzzer_name, _get_filter_from_job(job)) for job in fuzzer.jobs)
       # None job is explicitly added for fuzzer query across all jobs.
       fuzzer_job_filters.append((fuzzer_name, _get_filter_from_job(None)))
 
@@ -522,8 +503,9 @@ class PreloadHandler(base_handler.Handler):
         build_results(fuzzer, job_filter, group_by, date_start, date_end)
       except Exception as e:
         if 'No stats.' not in repr(e):
-          logs.log_error('Failed to preload %s %s %s %s %s.' %
-                         (fuzzer, job_filter, group_by, date_start, date_end))
+          logs.log_error(
+              f'Failed to preload {fuzzer} {job_filter} {group_by} {date_start} {date_end}.'
+          )
 
       if not job_filter:
         # Group by job only makes sense for queries that do not specify job.
@@ -532,8 +514,9 @@ class PreloadHandler(base_handler.Handler):
           build_results(fuzzer, job_filter, group_by, date_start, date_end)
         except Exception as e:
           if 'No stats.' not in repr(e):
-            logs.log_error('Failed to preload %s %s %s %s %s.' %
-                           (fuzzer, job_filter, group_by, date_start, date_end))
+            logs.log_error(
+                f'Failed to preload {fuzzer} {job_filter} {group_by} {date_start} {date_end}.'
+            )
 
 
 class RefreshCacheHandler(base_handler.Handler):

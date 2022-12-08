@@ -115,7 +115,7 @@ class RemoteProcessRunner(new_process.ProcessRunner):
     if 'cwd' in popen_args:
       request.popen_args.cwd = popen_args['cwd']
 
-    passed_env = popen_args.get('env', None)
+    passed_env = popen_args.get('env')
     if passed_env is not None:
       request.popen_args.env_is_set = True
       # Filter the passed environment to prevent leaking sensitive environment

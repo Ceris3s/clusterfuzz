@@ -58,10 +58,10 @@ def _is_uploader_allowed(email):
 
 def attach_testcases(rows):
   """Attach testcase to each crash."""
-  testcases = {}
-  for index, row in enumerate(rows):
-    testcases[index] = query_testcase(row['testcaseId'])
-
+  testcases = {
+      index: query_testcase(row['testcaseId'])
+      for index, row in enumerate(rows)
+  }
   for index, row in enumerate(rows):
     testcase = (list(testcases[index]) or [None])[0]
     if testcase:
@@ -92,18 +92,15 @@ def get_result():
   entities, total_pages, total_items, has_more = query.fetch_page(
       page=page, page_size=PAGE_SIZE, projection=None, more_limit=MORE_LIMIT)
 
-  items = []
-  for entity in entities:
-    items.append({
-        'timestamp': utils.utc_datetime_to_timestamp(entity.timestamp),
-        'testcaseId': entity.testcase_id,
-        'uploaderEmail': entity.uploader_email,
-        'filename': entity.filename,
-        'bundled': entity.bundled,
-        'pathInArchive': entity.path_in_archive,
-        'status': entity.status
-    })
-
+  items = [{
+      'timestamp': utils.utc_datetime_to_timestamp(entity.timestamp),
+      'testcaseId': entity.testcase_id,
+      'uploaderEmail': entity.uploader_email,
+      'filename': entity.filename,
+      'bundled': entity.bundled,
+      'pathInArchive': entity.path_in_archive,
+      'status': entity.status,
+  } for entity in entities]
   attach_testcases(items)
 
   result = {
@@ -119,20 +116,18 @@ def get_result():
 
 def _read_to_bytesio(gcs_path):
   """Return a bytesio representing a GCS object."""
-  data = storage.read_data(gcs_path)
-  if not data:
+  if data := storage.read_data(gcs_path):
+    return io.BytesIO(data)
+  else:
     raise helpers.EarlyExitException('Failed to read uploaded archive.', 500)
-
-  return io.BytesIO(data)
 
 
 def guess_input_file(uploaded_file, filename):
   """Guess the main test case file from an archive."""
   for file_pattern in RUN_FILE_PATTERNS:
     blob_reader = _read_to_bytesio(uploaded_file.gcs_path)
-    file_path_input = archive.get_first_file_matching(file_pattern, blob_reader,
-                                                      filename)
-    if file_path_input:
+    if file_path_input := archive.get_first_file_matching(
+        file_pattern, blob_reader, filename):
       return file_path_input
 
   return None
@@ -140,10 +135,7 @@ def guess_input_file(uploaded_file, filename):
 
 def query_testcase(testcase_id):
   """Start a query for an associated testcase."""
-  if not testcase_id:
-    return []
-
-  return data_types.Testcase.query(data_types.Testcase.key == ndb.Key(
+  return (data_types.Testcase.query(data_types.Testcase.key == ndb.Key(
       data_types.Testcase, testcase_id)).iter(
           limit=1,
           projection=[
@@ -155,12 +147,13 @@ def query_testcase(testcase_id):
               'fuzzer_name',
               'overridden_fuzzer_name',
               'project_name',
-          ])
+          ],
+      ) if testcase_id else [])
 
 
 def filter_target_names(targets, engine):
   """Filter target names for a fuzzer and remove parent fuzzer prefixes."""
-  prefix = engine + '_'
+  prefix = f'{engine}_'
   return [t[len(prefix):] for t in targets if t.startswith(prefix)]
 
 
@@ -181,11 +174,10 @@ def find_fuzz_target(engine, target_name, job_name):
   candidate_name = data_types.fuzz_target_fully_qualified_name(
       engine, project_name, target_name)
 
-  target = data_handler.get_fuzz_target(candidate_name)
-  if not target:
+  if target := data_handler.get_fuzz_target(candidate_name):
+    return target.fully_qualified_name(), target.binary
+  else:
     raise helpers.EarlyExitException('Fuzz target does not exist.', 400)
-
-  return target.fully_qualified_name(), target.binary
 
 
 def _allow_unprivileged_metadata(testcase_metadata):

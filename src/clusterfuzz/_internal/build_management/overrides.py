@@ -46,20 +46,20 @@ def check_and_apply_overrides(curr_path, config_key, platform_id=None):
 def _apply_platform_id_overrides(platform_id, config_url, config_key):
   """read the `bucket_path`, parse as JSON, and map based on platform_id."""
   config_dict = _get_config_dict(config_url)
-  path = _get_path_from_config(config_dict, config_key, platform_id)
-  if not path:
+  if path := _get_path_from_config(config_dict, config_key, platform_id):
+    return path
+  else:
     raise BuildOverrideError(
         OVERRIDE_PATH_NOT_FOUND_ERROR.format(config_key, config_url,
                                              platform_id))
-  return path
 
 
 def _get_config_dict(url):
   """Read configs from a json and return them as a dict"""
-  url_data = storage.read_data(url)
-  if not url_data:
+  if url_data := storage.read_data(url):
+    return json.loads(url_data)
+  else:
     raise BuildOverrideError(OVERRIDE_CONFIG_NOT_READ_ERROR.format(url))
-  return json.loads(url_data)
 
 
 def _get_path_from_config(config_dict, config_key, platform_id):

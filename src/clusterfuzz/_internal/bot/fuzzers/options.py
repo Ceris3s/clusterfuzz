@@ -13,6 +13,7 @@
 # limitations under the License.
 """Fuzzer options."""
 
+
 import configparser
 import os
 import random
@@ -28,7 +29,7 @@ from clusterfuzz._internal.system import environment
 OPTIONS_FILE_EXTENSION = '.options'
 
 # Whitelist for env variables .options files can set.
-ENV_VAR_WHITELIST = set([afl_constants.DONT_DEFER_ENV_VAR])
+ENV_VAR_WHITELIST = {afl_constants.DONT_DEFER_ENV_VAR}
 
 
 class FuzzerOptionsException(Exception):
@@ -70,7 +71,7 @@ class FuzzerArguments(object):
 
   def list(self):
     """Return arguments as a list."""
-    return ['-%s=%s' % (key, value) for key, value in six.iteritems(self.flags)]
+    return [f'-{key}={value}' for key, value in six.iteritems(self.flags)]
 
 
 class FuzzerOptions(object):
@@ -83,11 +84,7 @@ class FuzzerOptions(object):
     if not os.path.exists(options_file_path):
       raise FuzzerOptionsException('fuzzer options file does not exist.')
 
-    if cwd:
-      self._cwd = cwd
-    else:
-      self._cwd = os.path.dirname(options_file_path)
-
+    self._cwd = cwd or os.path.dirname(options_file_path)
     self._config = configparser.ConfigParser()
     with open(options_file_path, 'r') as f:
       try:
@@ -101,10 +98,8 @@ class FuzzerOptions(object):
 
   def _get_option_section(self, section):
     """Get an option section."""
-    if not self._config.has_section(section):
-      return {}
-
-    return dict(self._config.items(section))
+    return (dict(self._config.items(section))
+            if self._config.has_section(section) else {})
 
   def get_env(self):
     """Returns dict containing env variables and their values set by "env"
@@ -125,9 +120,7 @@ class FuzzerOptions(object):
     arguments = {}
     for option_name, option_value in six.iteritems(
         self._get_option_section(engine)):
-      # Check option value for usage of random() function.
-      match = self.OPTIONS_RANDOM_REGEX.match(option_value)
-      if match:
+      if match := self.OPTIONS_RANDOM_REGEX.match(option_value):
         min_value, max_value = match.groups()
         option_value = str(random.SystemRandom().randint(
             int(min_value), int(max_value)))
@@ -178,5 +171,5 @@ def get_fuzz_target_options(fuzz_target_path):
   try:
     return FuzzerOptions(options_file_path, cwd=options_cwd)
   except FuzzerOptionsException:
-    logs.log_error('Invalid options file: %s.' % options_file_path)
+    logs.log_error(f'Invalid options file: {options_file_path}.')
     return None

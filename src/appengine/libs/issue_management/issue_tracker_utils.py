@@ -53,14 +53,14 @@ def get_issue_tracker(project_name=None):
 
   issue_project_config = issue_tracker_config.get(project_name)
   if not issue_project_config:
-    raise ValueError('Issue tracker for {} does not exist'.format(project_name))
+    raise ValueError(f'Issue tracker for {project_name} does not exist')
 
-  constructor = _ISSUE_TRACKER_CONSTRUCTORS.get(issue_project_config['type'])
-  if not constructor:
+  if constructor := _ISSUE_TRACKER_CONSTRUCTORS.get(
+      issue_project_config['type']):
+    return constructor(project_name, issue_project_config)
+  else:
     raise ValueError('Invalid issue tracker type: ' +
                      issue_project_config['type'])
-
-  return constructor(project_name, issue_project_config)
 
 
 def get_issue_tracker_for_testcase(testcase):
@@ -109,11 +109,7 @@ def get_similar_issues(issue_tracker, testcase, only_open=True):
   keywords = get_search_keywords(testcase)
 
   issues = issue_tracker.find_issues(keywords=keywords, only_open=only_open)
-  if issues:
-    issues = list(issues)
-  else:
-    issues = []
-
+  issues = list(issues) if issues else []
   issue_ids = [issue.id for issue in issues]
 
   # Add issues from similar testcases sharing the same group id.
@@ -159,14 +155,8 @@ def get_issue_url(testcase):
   if not issue_tracker:
     return None
 
-  issue_id = (
-      testcase.bug_information
-      if testcase.bug_information else testcase.group_bug_information)
-  if not issue_id:
-    return None
-
-  # Use str(issue_id) as |group_bug_information| might be an integer.
-  return issue_tracker.issue_url(str(issue_id))
+  issue_id = testcase.bug_information or testcase.group_bug_information
+  return issue_tracker.issue_url(str(issue_id)) if issue_id else None
 
 
 def was_label_added(issue, label):

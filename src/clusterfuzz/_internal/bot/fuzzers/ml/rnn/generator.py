@@ -48,24 +48,26 @@ def download_model_from_gcs(local_model_directory, fuzzer_name):
 
   # Get cloud storage path.
   # e.g. gs://clusterfuzz-corpus/rnn/libpng_read_fuzzer
-  gcs_model_directory = 'gs://%s/%s/%s' % (
-      gcs_corpus_bucket, constants.RNN_MODEL_NAME, fuzzer_name)
+  gcs_model_directory = (
+      f'gs://{gcs_corpus_bucket}/{constants.RNN_MODEL_NAME}/{fuzzer_name}')
 
-  logs.log('GCS model directory for fuzzer %s is %s.' % (fuzzer_name,
-                                                         gcs_model_directory))
+  logs.log(
+      f'GCS model directory for fuzzer {fuzzer_name} is {gcs_model_directory}.'
+  )
 
   # RNN model consists of two files.
   data_filename = constants.RNN_MODEL_NAME + constants.MODEL_DATA_SUFFIX
   index_filename = constants.RNN_MODEL_NAME + constants.MODEL_INDEX_SUFFIX
 
   # Cloud file paths.
-  gcs_data_path = '%s/%s' % (gcs_model_directory, data_filename)
-  gcs_index_path = '%s/%s' % (gcs_model_directory, index_filename)
+  gcs_data_path = f'{gcs_model_directory}/{data_filename}'
+  gcs_index_path = f'{gcs_model_directory}/{index_filename}'
 
   # Check if model exists.
   if not (storage.exists(gcs_data_path) and storage.exists(gcs_index_path)):
-    logs.log('ML RNN model for fuzzer %s does not exist. Skip generation.' %
-             fuzzer_name)
+    logs.log(
+        f'ML RNN model for fuzzer {fuzzer_name} does not exist. Skip generation.'
+    )
     return False
 
   # Local file paths.
@@ -78,8 +80,9 @@ def download_model_from_gcs(local_model_directory, fuzzer_name):
       storage.copy_file_from(gcs_index_path, local_index_path))
 
   if not result:
-    logs.log('Failed to download RNN model for fuzzer %s. Skip generation.' %
-             fuzzer_name)
+    logs.log(
+        f'Failed to download RNN model for fuzzer {fuzzer_name}. Skip generation.'
+    )
     return False
 
   return True
@@ -102,11 +105,8 @@ def prepare_model_directory(fuzzer_name):
   model_directory = os.path.join(temp_directory, fuzzer_name)
   shell.remove_directory(model_directory, recreate=True)
 
-  if not download_model_from_gcs(model_directory, fuzzer_name):
-    return None
-
-  # Got the model. Return model path.
-  return os.path.join(model_directory, constants.RNN_MODEL_NAME)
+  return (os.path.join(model_directory, constants.RNN_MODEL_NAME)
+          if download_model_from_gcs(model_directory, fuzzer_name) else None)
 
 
 def run(input_directory,
@@ -217,8 +217,8 @@ def execute(input_directory, output_directory, fuzzer_name, generation_timeout):
   if result.return_code and not result.timed_out:
     if result.return_code == constants.ExitCode.CORPUS_TOO_SMALL:
       logs.log_warn(
-          'ML RNN generation for fuzzer %s aborted due to small corpus.' %
-          fuzzer_name)
+          f'ML RNN generation for fuzzer {fuzzer_name} aborted due to small corpus.'
+      )
     else:
       logs.log_error(
           'ML RNN generation for fuzzer %s failed with ExitCode = %d.' %
@@ -228,7 +228,7 @@ def execute(input_directory, output_directory, fuzzer_name, generation_timeout):
 
   # Timeout is not error, if we have new units generated.
   if result.timed_out:
-    logs.log_warn('ML RNN generation for fuzzer %s timed out.' % fuzzer_name)
+    logs.log_warn(f'ML RNN generation for fuzzer {fuzzer_name} timed out.')
 
   new_corpus_units = (
       shell.get_directory_file_count(output_directory) - old_corpus_units)
@@ -239,5 +239,6 @@ def execute(input_directory, output_directory, fuzzer_name, generation_timeout):
              (new_corpus_units, new_corpus_bytes, fuzzer_name))
   else:
     logs.log_error(
-        'ML RNN generator did not produce any inputs for %s' % fuzzer_name,
-        output=utils.decode_to_unicode(result.output))
+        f'ML RNN generator did not produce any inputs for {fuzzer_name}',
+        output=utils.decode_to_unicode(result.output),
+    )

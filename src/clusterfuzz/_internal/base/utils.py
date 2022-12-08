@@ -94,18 +94,12 @@ def utc_datetime_to_timestamp(dt):
 
 def decode_to_unicode(obj):
   """Decode object to unicode encoding."""
-  if not hasattr(obj, 'decode'):
-    return obj
-
-  return obj.decode('utf-8', errors='ignore')
+  return obj.decode('utf-8', errors='ignore') if hasattr(obj, 'decode') else obj
 
 
 def encode_as_unicode(obj):
   """Encode a string as unicode, or leave bytes as they are."""
-  if not hasattr(obj, 'encode'):
-    return obj
-
-  return obj.encode('utf-8')
+  return obj.encode('utf-8') if hasattr(obj, 'encode') else obj
 
 
 @retry.wrap(
@@ -142,11 +136,8 @@ def fields_match(string_1,
     return False
 
   min_fields_length = min(len(string_1_fields), len(string_2_fields))
-  for i in range(min_fields_length):
-    if string_1_fields[i] != string_2_fields[i]:
-      return False
-
-  return True
+  return all(string_1_fields[i] == string_2_fields[i]
+             for i in range(min_fields_length))
 
 
 def file_path_to_file_url(path):
@@ -177,8 +168,7 @@ def filter_file_list(file_list):
     filtered_file_list.append(file_path)
 
   if len(filtered_file_list) != len(file_list):
-    logs.log('Filtered file list (%s) from (%s).' % (str(filtered_file_list),
-                                                     str(file_list)))
+    logs.log(f'Filtered file list ({filtered_file_list}) from ({str(file_list)}).')
 
   return filtered_file_list
 
@@ -234,9 +224,9 @@ def service_account_email():
   email_id = get_application_id()
   if ':' in email_id:
     domain, application_id = email_id.split(':')
-    email_id = application_id + '.' + domain
+    email_id = f'{application_id}.{domain}'
 
-  return email_id + '@appspot.gserviceaccount.com'
+  return f'{email_id}@appspot.gserviceaccount.com'
 
 
 def get_bot_testcases_file_path(input_directory):
@@ -246,16 +236,11 @@ def get_bot_testcases_file_path(input_directory):
   # on |FUZZ_INPUTS| always since it might not be available during local fuzzer
   # testing, so use |input_directory| if it is not defined.
   local_testcases_directory = environment.get_value('FUZZ_INPUTS')
-  bot_testcases_directory = (
-      local_testcases_directory
-      if local_testcases_directory else input_directory)
+  bot_testcases_directory = local_testcases_directory or input_directory
 
   bot_name = environment.get_value('BOT_NAME')
-  bot_testcases_filename = '.%s_testcases' % bot_name
-  bot_testcases_file_path = os.path.join(bot_testcases_directory,
-                                         bot_testcases_filename)
-
-  return bot_testcases_file_path
+  bot_testcases_filename = f'.{bot_name}_testcases'
+  return os.path.join(bot_testcases_directory, bot_testcases_filename)
 
 
 def get_crash_stacktrace_output(application_command_line,
@@ -325,8 +310,7 @@ def get_file_contents_with_fatal_error_on_failure(path):
 def get_line_seperator(label=''):
   """Return a line separator with an optional label."""
   separator = '-' * 40
-  result = '\n\n%s%s%s\n\n' % (separator, label, separator)
-  return result
+  return '\n\n%s%s%s\n\n' % (separator, label, separator)
 
 
 def get_normalized_relative_path(file_path, directory_path):
@@ -354,8 +338,7 @@ def get_process_ids(process_id, recursive=True):
   try:
     psutil_handle = psutil.Process(process_id)
     children = psutil_handle.children(recursive=recursive)
-    for child in children:
-      pids.append(child.pid)
+    pids.extend(child.pid for child in children)
   except psutil.NoSuchProcess:
     # Avoid too much logging when the process already died.
     return []
@@ -371,9 +354,7 @@ def get_line_count_string(line_count):
   """Return string representation for size."""
   if line_count == 0:
     return 'empty'
-  if line_count == 1:
-    return '1 line'
-  return '%d lines' % line_count
+  return '1 line' if line_count == 1 else '%d lines' % line_count
 
 
 def get_size_string(size):
@@ -382,9 +363,7 @@ def get_size_string(size):
     return '%d B' % size
   if size < 1 << 20:
     return '%d KB' % (size >> 10)
-  if size < 1 << 30:
-    return '%d MB' % (size >> 20)
-  return '%d GB' % (size >> 30)
+  return '%d MB' % (size >> 20) if size < 1 << 30 else '%d GB' % (size >> 30)
 
 
 def get_unique_lines_in_unsymbolized_stack(symbolized_stacktrace,
@@ -396,10 +375,10 @@ def get_unique_lines_in_unsymbolized_stack(symbolized_stacktrace,
 
   symbolized_stacktrace_lines = symbolized_stacktrace.splitlines()
   unsymbolized_stacktrace_lines = unsymbolized_stacktrace.splitlines()
-  stripped_symbolized_stacktrace_lines = set()
-  for line in symbolized_stacktrace_lines:
-    stripped_symbolized_stacktrace_lines.add(line.strip())
-
+  stripped_symbolized_stacktrace_lines = {
+      line.strip()
+      for line in symbolized_stacktrace_lines
+  }
   index = 0
   last_index = len(unsymbolized_stacktrace_lines) - 1
   start = -1
@@ -422,19 +401,16 @@ def get_unique_lines_in_unsymbolized_stack(symbolized_stacktrace,
   line_gap = 2
   start = max(0, start - line_gap)
   end = min(end + line_gap, last_index + 1)
-  result = '\n'.join(unsymbolized_stacktrace_lines[start:end])
-  return result
+  return '\n'.join(unsymbolized_stacktrace_lines[start:end])
 
 
 def indent_string(string, chars):
   """Indents a string by x number of characters."""
 
-  indented_string = ''
-  for line in string.splitlines():
-    indented_string += '%s%s\n' % ((' ' * chars), line)
-
+  indented_string = ''.join(
+      '%s%s\n' % ((' ' * chars), line) for line in string.splitlines())
   # Strip the ending '\n' and return result.
-  return indented_string[0:-1]
+  return indented_string[:-1]
 
 
 def is_binary_file(file_path, bytes_to_read=1024):
@@ -450,7 +426,7 @@ def is_binary_file(file_path, bytes_to_read=1024):
     with open(file_path, 'rb') as file_handle:
       data = file_handle.read(bytes_to_read)
   except:
-    logs.log_error('Could not read file %s in is_binary_file.' % file_path)
+    logs.log_error(f'Could not read file {file_path} in is_binary_file.')
     return None
 
   binary_data = [char for char in data if char not in text_characters]
@@ -488,17 +464,14 @@ def is_valid_testcase_file(file_path,
 
   directories_to_ignore = ['.git', '.hg', '.svn']
   for directory_to_ignore in directories_to_ignore:
-    directory_string = '%s%s%s' % (os.sep, directory_to_ignore, os.sep)
+    directory_string = f'{os.sep}{directory_to_ignore}{os.sep}'
     if directory_string in file_path:
       return False
 
   if (check_if_exists or size_limit) and not os.path.exists(file_path):
     return False
 
-  if size_limit and os.path.getsize(file_path) > size_limit:
-    return False
-
-  return True
+  return not size_limit or os.path.getsize(file_path) <= size_limit
 
 
 def maximum_parallel_processes_allowed():
@@ -571,12 +544,12 @@ def read_data_from_file(file_path, eval_data=True, default=None):
         file_content = file_handle.read()
     except:
       file_content = None
-      logs.log_warn('Error occurred while reading %s, retrying.' % file_path)
+      logs.log_warn(f'Error occurred while reading {file_path}, retrying.')
       time.sleep(random.uniform(1, failure_wait_interval))
       continue
 
   if file_content is None:
-    logs.log_error('Failed to read data from file %s.' % file_path)
+    logs.log_error(f'Failed to read data from file {file_path}.')
     return None
 
   if not eval_data:
@@ -593,10 +566,7 @@ def read_data_from_file(file_path, eval_data=True, default=None):
 
 def remove_prefix(string, prefix):
   """Strips the prefix from a string."""
-  if string.startswith(prefix):
-    return string[len(prefix):]
-
-  return string
+  return string[len(prefix):] if string.startswith(prefix) else string
 
 
 def remove_sub_strings(string, substrings):
@@ -621,13 +591,7 @@ def search_bytes_in_file(search_bytes, file_handle):
   """Helper to search for bytes in a large binary file without memory
   issues.
   """
-  # TODO(aarya): This is too brittle and will fail if we have a very large
-  # line.
-  for line in file_handle:
-    if search_bytes in line:
-      return True
-
-  return False
+  return any(search_bytes in line for line in file_handle)
 
 
 def string_hash(obj):
@@ -656,25 +620,18 @@ def string_is_true(value):
 
 def strip_from_left(string, prefix):
   """Strip a prefix from start from string."""
-  if not string.startswith(prefix):
-    return string
-  return string[len(prefix):]
+  return string[len(prefix):] if string.startswith(prefix) else string
 
 
 def strip_from_right(string, suffix):
   """Strip a suffix from end of string."""
-  if not string.endswith(suffix):
-    return string
-  return string[:len(string) - len(suffix)]
+  return (string[:len(string) - len(suffix)]
+          if string.endswith(suffix) else string)
 
 
 def sub_string_exists_in(substring_list, string):
   """Return true if one of the substring in the list is found in |string|."""
-  for substring in substring_list:
-    if substring in string:
-      return True
-
-  return False
+  return any(substring in string for substring in substring_list)
 
 
 def time_difference_string(timestamp):
@@ -688,20 +645,16 @@ def time_difference_string(timestamp):
   d_days = d_hours // 24
 
   if d_days > 6:
-    return '%s' % str(timestamp).split()[0]
+    return f'{str(timestamp).split()[0]}'
   if d_days > 1:
-    return '%s days ago' % d_days  # starts at 2 days.
+    return f'{d_days} days ago'
   if d_hours > 1:
-    return '%s hours ago' % d_hours  # starts at 2 hours.
+    return f'{d_hours} hours ago'
   if d_minutes > 1:
-    return '%s minutes ago' % d_minutes
+    return f'{d_minutes} minutes ago'
   if d_minutes > 0:
     return '1 minute ago'
-  if delta > -30:
-    return 'moments ago'
-
-  # Only say something is in the future if it is more than just clock skew.
-  return 'in the future'
+  return 'moments ago' if delta > -30 else 'in the future'
 
 
 def timeout(duration):
@@ -769,12 +722,7 @@ def wait_until_timeout(threads, thread_timeout):
   while time.time() < wait_timeout:
     time.sleep(thread_alive_check_interval)
 
-    thread_alive = False
-    for thread in threads:
-      if thread.is_alive():
-        thread_alive = True
-        break
-
+    thread_alive = any(thread.is_alive() for thread in threads)
     if not thread_alive:
       return False
 
@@ -801,14 +749,14 @@ def write_data_to_file(content, file_path, append=False):
     except EnvironmentError:
       # An EnvironmentError signals a problem writing the file. Retry in case
       # it was a spurious error.
-      logs.log_warn('Error occurred while writing %s, retrying.' % file_path)
+      logs.log_warn(f'Error occurred while writing {file_path}, retrying.')
       time.sleep(random.uniform(1, failure_wait_interval))
       continue
 
     # Successfully written data file.
     return
 
-  logs.log_error('Failed to write data to file %s.' % file_path)
+  logs.log_error(f'Failed to write data to file {file_path}.')
 
 
 @memoize.wrap(memoize.FifoInMemory(1))
@@ -834,9 +782,8 @@ def current_project():
 
 def current_source_version():
   """Return the current source revision."""
-  # For test use.
-  source_version_override = environment.get_value('SOURCE_VERSION_OVERRIDE')
-  if source_version_override:
+  if source_version_override := environment.get_value(
+      'SOURCE_VERSION_OVERRIDE'):
     return source_version_override
 
   root_directory = environment.get_value('ROOT_DIR')
@@ -900,10 +847,8 @@ def parse_delimited(value_or_handle, delimiter, strip=False,
     if strip:
       result = result.strip()
 
-    if remove_empty and not result:
-      continue
-
-    processed_results.append(result)
+    if not remove_empty or result:
+      processed_results.append(result)
 
   return processed_results
 
@@ -923,11 +868,8 @@ def file_hash(file_path):
   chunk_size = 51200  # Read in 50 KB chunks.
   digest = hashlib.sha1()
   with open(file_path, 'rb') as file_handle:
-    chunk = file_handle.read(chunk_size)
-    while chunk:
+    while chunk := file_handle.read(chunk_size):
       digest.update(chunk)
-      chunk = file_handle.read(chunk_size)
-
   return digest.hexdigest()
 
 

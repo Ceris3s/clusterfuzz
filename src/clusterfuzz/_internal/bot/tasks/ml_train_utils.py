@@ -50,8 +50,7 @@ def get_corpus(corpus_directory, fuzzer_name):
 
   # Download latest backup.
   if not storage.copy_file_from(gcs_backup_path, local_backup_path):
-    logs.log_error(
-        'Failed to download corpus from GCS bucket {}.'.format(gcs_backup_path))
+    logs.log_error(f'Failed to download corpus from GCS bucket {gcs_backup_path}.')
     return False
 
   # Extract corpus from zip file.
@@ -72,10 +71,5 @@ def get_gcs_model_directory(folder, fuzzer_name):
     A string with the GCS absolute path to upload the model to.
   """
   model_bucket_name = environment.get_value('CORPUS_BUCKET')
-  if not model_bucket_name:
-    return None
-
-  gcs_model_directory = 'gs://{}/{}/{}'.format(model_bucket_name, folder,
-                                               fuzzer_name)
-
-  return gcs_model_directory
+  return (f'gs://{model_bucket_name}/{folder}/{fuzzer_name}'
+          if model_bucket_name else None)

@@ -894,16 +894,17 @@ class JavaScriptLexer(JavaScriptBaseLexer):
 
   def action(self, localctx, ruleIndex, actionIndex):
     if self._actions is None:
-      actions = dict()
-      actions[8] = self.OpenBrace_action
-      actions[9] = self.CloseBrace_action
-      actions[116] = self.StringLiteral_action
+      actions = {
+          8: self.OpenBrace_action,
+          9: self.CloseBrace_action,
+          116: self.StringLiteral_action,
+      }
       self._actions = actions
     action = self._actions.get(ruleIndex, None)
     if action is not None:
       action(localctx, actionIndex)
     else:
-      raise Exception("No registered action for:" + str(ruleIndex))
+      raise Exception(f"No registered action for:{str(ruleIndex)}")
 
   def OpenBrace_action(self, localctx, actionIndex):
     if actionIndex == 0:
@@ -919,25 +920,26 @@ class JavaScriptLexer(JavaScriptBaseLexer):
 
   def sempred(self, localctx, ruleIndex, predIndex):
     if self._predicates is None:
-      preds = dict()
-      preds[0] = self.HashBangLine_sempred
-      preds[3] = self.RegularExpressionLiteral_sempred
-      preds[62] = self.OctalIntegerLiteral_sempred
-      preds[106] = self.Implements_sempred
-      preds[107] = self.Let_sempred
-      preds[108] = self.Private_sempred
-      preds[109] = self.Public_sempred
-      preds[110] = self.Interface_sempred
-      preds[111] = self.Package_sempred
-      preds[112] = self.Protected_sempred
-      preds[113] = self.Static_sempred
-      preds[114] = self.Yield_sempred
+      preds = {
+          0: self.HashBangLine_sempred,
+          3: self.RegularExpressionLiteral_sempred,
+          62: self.OctalIntegerLiteral_sempred,
+          106: self.Implements_sempred,
+          107: self.Let_sempred,
+          108: self.Private_sempred,
+          109: self.Public_sempred,
+          110: self.Interface_sempred,
+          111: self.Package_sempred,
+          112: self.Protected_sempred,
+          113: self.Static_sempred,
+          114: self.Yield_sempred,
+      }
       self._predicates = preds
     pred = self._predicates.get(ruleIndex, None)
     if pred is not None:
       return pred(localctx, predIndex)
     else:
-      raise Exception("No registered predicate for:" + str(ruleIndex))
+      raise Exception(f"No registered predicate for:{str(ruleIndex)}")
 
   def HashBangLine_sempred(self, localctx, predIndex):
     if predIndex == 0:

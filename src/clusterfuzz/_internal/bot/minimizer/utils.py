@@ -68,20 +68,13 @@ def get_size_string(size):
     return '%d B' % size
   if size < 1 << 20:
     return '%d KB' % (size >> 10)
-  if size < 1 << 30:
-    return '%d MB' % (size >> 20)
-
-  return '%d GB' % (size >> 30)
+  return '%d MB' % (size >> 20) if size < 1 << 30 else '%d GB' % (size >> 30)
 
 
 def has_marker(stacktrace, marker_list):
   """Return true if the stacktrace has atleast one marker
   in the marker list."""
-  for marker in marker_list:
-    if marker in stacktrace:
-      return True
-
-  return False
+  return any(marker in stacktrace for marker in marker_list)
 
 
 def set_test_command(new_test_command):
@@ -98,10 +91,7 @@ def set_test_attempts(new_attempts):
 
 def test(test_path):
   """Wrapper function to verify that a test does not fail for multiple runs."""
-  for _ in range(attempts):
-    if not single_test_run(test_path):
-      return False
-  return True
+  return all(single_test_run(test_path) for _ in range(attempts))
 
 
 def single_test_run(test_path):

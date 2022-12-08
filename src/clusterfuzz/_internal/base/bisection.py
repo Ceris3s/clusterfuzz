@@ -101,16 +101,18 @@ def _check_commits(testcase, bisect_type, old_commit, new_commit):
   if bisect_type == 'fixed':
     # Narrowest range: last crashing revision up to the latest build.
     return _get_commits(
-        str(known_crash_revision) + ':' + str(revision_list[-1]),
-        testcase.job_type)
+        f'{str(known_crash_revision)}:{str(revision_list[-1])}',
+        testcase.job_type,
+    )
 
   if bisect_type == 'regressed':
     # Narrowest range: first build to the first crashing revision.
     return _get_commits(
-        str(revision_list[0]) + ':' + str(testcase.crash_revision),
-        testcase.job_type)
+        f'{str(revision_list[0])}:{str(testcase.crash_revision)}',
+        testcase.job_type,
+    )
 
-  raise ValueError('Invalid bisection type: ' + bisect_type)
+  raise ValueError(f'Invalid bisection type: {bisect_type}')
 
 
 def _make_bisection_request(pubsub_topic, testcase, target, bisect_type):
@@ -122,7 +124,7 @@ def _make_bisection_request(pubsub_topic, testcase, target, bisect_type):
     old_commit, new_commit = _get_commits(testcase.regression,
                                           testcase.job_type)
   else:
-    raise ValueError('Invalid bisection type: ' + bisect_type)
+    raise ValueError(f'Invalid bisection type: {bisect_type}')
 
   if not new_commit:
     # old_commit can be empty (i.e. '0' case), but new_commit should never be.

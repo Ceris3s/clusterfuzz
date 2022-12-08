@@ -299,7 +299,7 @@ def main():
     return
 
   _setup()
-  command = importlib.import_module('local.butler.%s' % args.command)
+  command = importlib.import_module(f'local.butler.{args.command}')
   command.execute(args)
 
 

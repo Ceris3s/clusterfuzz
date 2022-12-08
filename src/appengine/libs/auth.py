@@ -38,11 +38,10 @@ class AuthError(Exception):
 
 def auth_domain():
   """Get the auth domain."""
-  domain = local_config.ProjectConfig().get('firebase.auth_domain')
-  if domain:
+  if domain := local_config.ProjectConfig().get('firebase.auth_domain'):
     return domain
 
-  return utils.get_application_id() + '.firebaseapp.com'
+  return f'{utils.get_application_id()}.firebaseapp.com'
 
 
 def is_current_user_admin():
@@ -76,22 +75,22 @@ def _get_iap_key(key_id):
   """
   resp = requests.get('https://www.gstatic.com/iap/verify/public_key')
   if resp.status_code != 200:
-    raise AuthError('Unable to fetch IAP keys: {} / {} / {}'.format(
-        resp.status_code, resp.headers, resp.text))
+    raise AuthError(
+        f'Unable to fetch IAP keys: {resp.status_code} / {resp.headers} / {resp.text}'
+    )
 
   result = resp.json()
-  key = result.get(key_id)
-  if not key:
+  if key := result.get(key_id):
+    return key
+  else:
     raise AuthError('Key {!r} not found'.format(key_id))
-
-  return key
 
 
 def _validate_iap_jwt(iap_jwt):
   """Validate JWT assertion."""
   project_id = utils.get_application_id()
-  expected_audience = '/projects/{}/apps/{}'.format(
-      _project_number_from_id(project_id), project_id)
+  expected_audience = (
+      f'/projects/{_project_number_from_id(project_id)}/apps/{project_id}')
 
   try:
     key_id = jwt.get_unverified_header(iap_jwt).get('kid')
@@ -108,16 +107,13 @@ def _validate_iap_jwt(iap_jwt):
     return decoded_jwt['email']
   except (jwt.exceptions.InvalidTokenError,
           requests.exceptions.RequestException) as e:
-    raise AuthError('JWT assertion decode error: ' + str(e))
+    raise AuthError(f'JWT assertion decode error: {str(e)}')
 
 
 def get_iap_email(current_request):
   """Get Cloud IAP email."""
   jwt_assertion = current_request.headers.get('X-Goog-IAP-JWT-Assertion')
-  if not jwt_assertion:
-    return None
-
-  return _validate_iap_jwt(jwt_assertion)
+  return _validate_iap_jwt(jwt_assertion) if jwt_assertion else None
 
 
 def get_current_user():
@@ -127,21 +123,18 @@ def get_current_user():
 
   current_request = request_cache.get_current_request()
   if local_config.AuthConfig().get('enable_loas'):
-    loas_user = current_request.headers.get('X-AppEngine-LOAS-Peer-Username')
-    if loas_user:
-      return User(loas_user + '@google.com')
+    if loas_user := current_request.headers.get(
+        'X-AppEngine-LOAS-Peer-Username'):
+      return User(f'{loas_user}@google.com')
 
-  iap_email = get_iap_email(current_request)
-  if iap_email:
+  if iap_email := get_iap_email(current_request):
     return User(iap_email)
 
   cache_backing = request_cache.get_cache_backing()
-  oauth_email = getattr(cache_backing, '_oauth_email', None)
-  if oauth_email:
+  if oauth_email := getattr(cache_backing, '_oauth_email', None):
     return User(oauth_email)
 
-  cached_email = getattr(cache_backing, '_cached_email', None)
-  if cached_email:
+  if cached_email := getattr(cache_backing, '_cached_email', None):
     return User(cached_email)
 
   session_cookie = get_session_cookie()

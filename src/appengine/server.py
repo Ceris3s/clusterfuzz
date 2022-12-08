@@ -255,7 +255,7 @@ def redirect_handler():
     return None
 
   if request.host in redirect_domains:
-    return redirect('https://' + main_domain + request.full_path)
+    return redirect(f'https://{main_domain}{request.full_path}')
 
   return None
 

@@ -68,9 +68,7 @@ def _copy_testcase_to_device_and_setup_environment(testcase,
   if not job_type_has_privileged_access:
     return
 
-  # Install testcase if it is an app.
-  package_name = android.app.get_package_name(testcase_file_path)
-  if package_name:
+  if package_name := android.app.get_package_name(testcase_file_path):
     # Set the package name for later use.
     environment.set_value('PKG_NAME', package_name)
 
@@ -78,9 +76,7 @@ def _copy_testcase_to_device_and_setup_environment(testcase,
     android.device.install_application_if_needed(
         testcase_file_path, force_update=True)
 
-  # Set app launch command if available from upload.
-  app_launch_command = testcase.get_metadata('app_launch_command')
-  if app_launch_command:
+  if app_launch_command := testcase.get_metadata('app_launch_command'):
     environment.set_value('APP_LAUNCH_COMMAND', app_launch_command)
 
   # Set executable bit on the testcase (to allow binary executable testcases
@@ -160,16 +156,10 @@ def prepare_environment_for_testcase(testcase, job_type, task_name):
     environment.set_value('TEST_TIMEOUT',
                           int(test_timeout * testcase.timeout_multiplier))
 
-  # Add FUZZ_TARGET to environment if this is a fuzz target testcase.
-  fuzz_target = testcase.get_metadata('fuzzer_binary_name')
-  if fuzz_target:
+  if fuzz_target := testcase.get_metadata('fuzzer_binary_name'):
     environment.set_value('FUZZ_TARGET', fuzz_target)
 
-  # Override APP_ARGS with minimized arguments (if available). Don't do this
-  # for variant task since other job types can have its own set of required
-  # arguments, so use the full set of arguments of that job.
-  app_args = _get_application_arguments(testcase, job_type, task_name)
-  if app_args:
+  if app_args := _get_application_arguments(testcase, job_type, task_name):
     environment.set_value('APP_ARGS', app_args)
 
 
@@ -201,13 +191,13 @@ def setup_testcase(testcase, job_type, fuzzer_override=None):
       logs.log_error('Closed testcase %d with invalid fuzzer %s.' %
                      (testcase_id, fuzzer_name))
 
-      error_message = 'Fuzzer %s no longer exists' % fuzzer_name
+      error_message = f'Fuzzer {fuzzer_name} no longer exists'
       data_handler.update_testcase_comment(testcase, data_types.TaskState.ERROR,
                                            error_message)
       return None, None, None
 
     if not update_successful:
-      error_message = 'Unable to setup fuzzer %s' % fuzzer_name
+      error_message = f'Unable to setup fuzzer {fuzzer_name}'
       data_handler.update_testcase_comment(testcase, data_types.TaskState.ERROR,
                                            error_message)
       tasks.add_task(
@@ -217,7 +207,7 @@ def setup_testcase(testcase, job_type, fuzzer_override=None):
   # Extract the testcase and any of its resources to the input directory.
   file_list, input_directory, testcase_file_path = unpack_testcase(testcase)
   if not file_list:
-    error_message = 'Unable to setup testcase %s' % testcase_file_path
+    error_message = f'Unable to setup testcase {testcase_file_path}'
     data_handler.update_testcase_comment(testcase, data_types.TaskState.ERROR,
                                          error_message)
     tasks.add_task(
@@ -234,9 +224,7 @@ def setup_testcase(testcase, job_type, fuzzer_override=None):
     from clusterfuzz._internal.bot.untrusted_runner import file_host
     file_host.push_testcases_to_worker()
 
-  # Copy global blacklist into local blacklist.
-  is_lsan_enabled = environment.get_value('LSAN')
-  if is_lsan_enabled:
+  if is_lsan_enabled := environment.get_value('LSAN'):
     # Get local blacklist without this testcase's entry.
     leak_blacklist.copy_global_to_local_blacklist(excluded_testcase=testcase)
 
@@ -274,7 +262,7 @@ def _get_testcase_file_and_path(testcase):
 
   # Root directory can be different on bots. Fix the path to account for this.
   root_directory = environment.get_value('ROOT_DIR')
-  search_string = '%s%s%s' % (os.sep, _BOT_DIR, os.sep)
+  search_string = f'{os.sep}{_BOT_DIR}{os.sep}'
   search_index = testcase_absolute_path.find(search_string)
   relative_path = testcase_absolute_path[search_index + len(search_string):]
   testcase_path = os.path.join(root_directory, _BOT_DIR, relative_path)
@@ -314,17 +302,13 @@ def unpack_testcase(testcase):
     file_list = archive.get_file_list(temp_filename)
     shell.remove_file(temp_filename)
 
-    file_exists = False
-    for file_name in file_list:
-      if os.path.basename(file_name) == os.path.basename(testcase_file_path):
-        file_exists = True
-        break
-
+    file_exists = any(
+        os.path.basename(file_name) == os.path.basename(testcase_file_path)
+        for file_name in file_list)
     if not file_exists:
       logs.log_error(
-          'Expected file to run %s is not in archive. Base directory is %s and '
-          'files in archive are [%s].' % (testcase_file_path, input_directory,
-                                          ','.join(file_list)))
+          f"Expected file to run {testcase_file_path} is not in archive. Base directory is {input_directory} and files in archive are [{','.join(file_list)}]."
+      )
       return None, input_directory, testcase_file_path
   else:
     file_list.append(testcase_file_path)
@@ -334,7 +318,7 @@ def unpack_testcase(testcase):
 
 def _get_data_bundle_update_lock_name(data_bundle_name):
   """Return the lock key name for the given data bundle."""
-  return 'update:data_bundle:%s' % data_bundle_name
+  return f'update:data_bundle:{data_bundle_name}'
 
 
 def _get_data_bundle_sync_file_path(data_bundle_directory):
@@ -371,8 +355,9 @@ def _clear_old_data_bundles_if_needed():
   dirs_to_remove = sorted(
       dirs, key=os.path.getmtime, reverse=True)[_DATA_BUNDLE_CACHE_COUNT:]
   for dir_to_remove in dirs_to_remove:
-    logs.log('Removing data bundle directory to keep disk cache small: %s' %
-             dir_to_remove)
+    logs.log(
+        f'Removing data bundle directory to keep disk cache small: {dir_to_remove}'
+    )
     shell.remove_directory(dir_to_remove)
 
 
@@ -391,13 +376,12 @@ def update_data_bundle(fuzzer, data_bundle):
 
   data_bundle_directory = get_data_bundle_directory(fuzzer.name)
   if not data_bundle_directory:
-    logs.log_error('Failed to setup data bundle %s.' % data_bundle.name)
+    logs.log_error(f'Failed to setup data bundle {data_bundle.name}.')
     return False
 
   if not shell.create_directory(
       data_bundle_directory, create_intermediates=True):
-    logs.log_error(
-        'Failed to create data bundle %s directory.' % data_bundle.name)
+    logs.log_error(f'Failed to create data bundle {data_bundle.name} directory.')
     return False
 
   # Check if data bundle is up to date. If yes, skip the update.
@@ -407,7 +391,7 @@ def update_data_bundle(fuzzer, data_bundle):
 
   # Fetch lock for this data bundle.
   if not _fetch_lock_for_data_bundle_update(data_bundle):
-    logs.log_error('Failed to lock data bundle %s.' % data_bundle.name)
+    logs.log_error(f'Failed to lock data bundle {data_bundle.name}.')
     return False
 
   # Re-check if another bot did the sync already. If yes, skip.
@@ -438,8 +422,8 @@ def update_data_bundle(fuzzer, data_bundle):
           bucket_url, data_bundle_directory, delete=False)
 
     if result.return_code != 0:
-      logs.log_error('Failed to sync data bundle %s: %s.' % (data_bundle.name,
-                                                             result.output))
+      logs.log_error(
+          f'Failed to sync data bundle {data_bundle.name}: {result.output}.')
       _release_lock_for_data_bundle_update(data_bundle)
       return False
 
@@ -464,7 +448,7 @@ def update_fuzzer_and_data_bundles(fuzzer_name):
   """Update the fuzzer with a given name if necessary."""
   fuzzer = data_types.Fuzzer.query(data_types.Fuzzer.name == fuzzer_name).get()
   if not fuzzer:
-    logs.log_error('No fuzzer exists with name %s.' % fuzzer_name)
+    logs.log_error(f'No fuzzer exists with name {fuzzer_name}.')
     raise errors.InvalidFuzzerError
 
   # Set some helper environment variables.
@@ -494,7 +478,7 @@ def update_fuzzer_and_data_bundles(fuzzer_name):
     environment.set_value('MAX_TESTCASES', fuzzer.max_testcases)
 
   # Check for updates to this fuzzer.
-  version_file = os.path.join(fuzzer_directory, '.%s_version' % fuzzer_name)
+  version_file = os.path.join(fuzzer_directory, f'.{fuzzer_name}_version')
   if (not fuzzer.builtin and
       revisions.needs_update(version_file, fuzzer.revision)):
     logs.log('Fuzzer update was found, updating.')
@@ -517,7 +501,7 @@ def update_fuzzer_and_data_bundles(fuzzer_name):
                        '(bad archive or unsupported format).') % fuzzer.filename
       logs.log_error(error_message)
       fuzzer_logs.upload_script_log(
-          'Fatal error: ' + error_message, fuzzer_name=fuzzer_name)
+          f'Fatal error: {error_message}', fuzzer_name=fuzzer_name)
       return None
 
     fuzzer_path = os.path.join(fuzzer_directory, fuzzer.executable_path)
@@ -526,7 +510,7 @@ def update_fuzzer_and_data_bundles(fuzzer_name):
                        'Check fuzzer configuration.') % fuzzer.executable_path
       logs.log_error(error_message)
       fuzzer_logs.upload_script_log(
-          'Fatal error: ' + error_message, fuzzer_name=fuzzer_name)
+          f'Fatal error: {error_message}', fuzzer_name=fuzzer_name)
       return None
 
     # Make fuzzer executable.
@@ -604,8 +588,7 @@ def _is_data_bundle_up_to_date(data_bundle, data_bundle_directory):
   bucket_url = data_handler.get_data_bundle_bucket_url(data_bundle.name)
   last_updated_time = storage.last_updated(bucket_url)
   if last_updated_time and last_sync_time > last_updated_time:
-    logs.log(
-        'Data bundle %s has no new content from last sync.' % data_bundle.name)
+    logs.log(f'Data bundle {data_bundle.name} has no new content from last sync.')
     return True
 
   return False
@@ -638,7 +621,7 @@ def get_data_bundle_directory(fuzzer_name):
   """Return data bundle data directory."""
   fuzzer = data_types.Fuzzer.query(data_types.Fuzzer.name == fuzzer_name).get()
   if not fuzzer:
-    logs.log_error('Unable to find fuzzer %s.' % fuzzer_name)
+    logs.log_error(f'Unable to find fuzzer {fuzzer_name}.')
     return None
 
   # Store corpora for built-in fuzzers like libFuzzer in the same directory
@@ -694,7 +677,7 @@ def is_directory_on_nfs(data_bundle_directory):
 def archive_testcase_and_dependencies_in_gcs(resource_list, testcase_path):
   """Archive testcase and its dependencies, and store in blobstore."""
   if not os.path.exists(testcase_path):
-    logs.log_error('Unable to find testcase %s.' % testcase_path)
+    logs.log_error(f'Unable to find testcase {testcase_path}.')
     return None, None, None, None
 
   absolute_filename = testcase_path
@@ -721,7 +704,7 @@ def archive_testcase_and_dependencies_in_gcs(resource_list, testcase_path):
     try:
       file_handle = open(testcase_path, 'rb')
     except IOError:
-      logs.log_error('Unable to open testcase %s.' % testcase_path)
+      logs.log_error(f'Unable to open testcase {testcase_path}.')
       return None, None, None, None
   else:
     # If there are resources, create an archive.
@@ -735,18 +718,12 @@ def archive_testcase_and_dependencies_in_gcs(resource_list, testcase_path):
       for directory_index in range(length):
         if (current_directory_list[directory_index] !=
             base_directory_list[directory_index]):
-          base_directory_list = base_directory_list[0:directory_index]
+          base_directory_list = base_directory_list[:directory_index]
           break
 
     base_directory = os.path.sep.join(base_directory_list)
-    logs.log('Subresource common base directory: %s' % base_directory)
-    if base_directory:
-      # Common parent directory, archive sub-paths only.
-      base_len = len(base_directory) + len(os.path.sep)
-    else:
-      # No common parent directory, archive all paths as it-is.
-      base_len = 0
-
+    logs.log(f'Subresource common base directory: {base_directory}')
+    base_len = len(base_directory) + len(os.path.sep) if base_directory else 0
     # Prepare the filename for the archive.
     zip_filename, _ = os.path.splitext(os.path.basename(testcase_path))
     zip_filename += _TESTCASE_ARCHIVE_EXTENSION
@@ -763,7 +740,7 @@ def archive_testcase_and_dependencies_in_gcs(resource_list, testcase_path):
     try:
       file_handle = open(zip_path, 'rb')
     except IOError:
-      logs.log_error('Unable to open testcase archive %s.' % zip_path)
+      logs.log_error(f'Unable to open testcase archive {zip_path}.')
       return None, None, None, None
 
     archived = True

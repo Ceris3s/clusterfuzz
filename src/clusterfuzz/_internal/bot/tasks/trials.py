@@ -43,10 +43,11 @@ class Trials:
     for extension in extensions_to_strip:
       app_name = utils.strip_from_right(app_name, extension)
 
-    self.trials = {}
-    for trial in data_types.Trial.query(data_types.Trial.app_name == app_name):
-      self.trials[trial.app_args] = trial.probability
-
+    self.trials = {
+        trial.app_args: trial.probability
+        for trial in data_types.Trial.query(
+            data_types.Trial.app_name == app_name)
+    }
     app_dir = environment.get_value('APP_DIR')
     if not app_dir:
       return
@@ -63,7 +64,7 @@ class Trials:
           continue
         self.trials[config['app_args']] = config['probability']
     except Exception as e:
-      logs.log_warn('Unable to parse config file: %s' % str(e))
+      logs.log_warn(f'Unable to parse config file: {str(e)}')
       return
 
   def setup_additional_args_for_app(self):
@@ -77,5 +78,5 @@ class Trials:
 
     trial_app_args = ' '.join(trial_args)
     app_args = environment.get_value('APP_ARGS', '')
-    environment.set_value('APP_ARGS', '%s %s' % (app_args, trial_app_args))
+    environment.set_value('APP_ARGS', f'{app_args} {trial_app_args}')
     environment.set_value('TRIAL_APP_ARGS', trial_app_args)

@@ -31,7 +31,7 @@ def _create_client(service_name, version='v1'):
 
 def _service_account_email(project_id, service_account_id):
   """Return full service account email."""
-  return '%s@%s.iam.gserviceaccount.com' % (service_account_id, project_id)
+  return f'{service_account_id}@{project_id}.iam.gserviceaccount.com'
 
 
 def _service_account_id(project):
@@ -82,20 +82,21 @@ def get_or_create_service_account(project):
   project_id = utils.get_application_id()
   service_account_id = _service_account_id(project)
 
-  service_account = get_service_account(iam, project_id, service_account_id)
-  if service_account:
+  if service_account := get_service_account(iam, project_id,
+                                            service_account_id):
     logging.info('Using existing new service account for %s.', project)
     return service_account
 
   logging.info('Creating new service account for %s.', project)
-  request = iam.projects().serviceAccounts().create(
-      name='projects/' + project_id,
+  request = (iam.projects().serviceAccounts().create(
+      name=f'projects/{project_id}',
       body={
           'accountId': service_account_id,
           'serviceAccount': {
               'displayName': project,
-          }
-      })
+          },
+      },
+  ))
 
   return request.execute()
 
@@ -103,10 +104,10 @@ def get_or_create_service_account(project):
 def _get_or_insert_iam_binding(policy, role):
   """Return the binding corresponding to the given role. Creates the binding if
   needed."""
-  existing_binding = next(
+  if existing_binding := next(
       (binding for binding in policy['bindings'] if binding['role'] == role),
-      None)
-  if existing_binding:
+      None,
+  ):
     return existing_binding
 
   new_binding = {
@@ -123,7 +124,7 @@ def _add_service_account_role(policy, role, service_account):
   made."""
   binding = _get_or_insert_iam_binding(policy, role)
 
-  service_account_member = 'serviceAccount:' + service_account
+  service_account_member = f'serviceAccount:{service_account}'
   if service_account_member not in binding['members']:
     binding['members'].append(service_account_member)
     return True

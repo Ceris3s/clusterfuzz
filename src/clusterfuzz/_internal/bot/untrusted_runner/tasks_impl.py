@@ -134,7 +134,7 @@ def _pack_values(values):
     elif isinstance(value, six.string_types):
       packed_value.Pack(wrappers_pb2.StringValue(value=value))
     else:
-      raise ValueError('Unknown stat type for ' + key)
+      raise ValueError(f'Unknown stat type for {key}')
 
     packed[key] = packed_value
 

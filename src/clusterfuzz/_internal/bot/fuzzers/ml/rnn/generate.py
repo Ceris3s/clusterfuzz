@@ -69,7 +69,7 @@ def main(args):
   # Use timestamp as part of identifier for each testcase generated.
   timestamp = str(math.trunc(time.time()))
 
-  print('\nusing model {} to generate {} inputs...'.format(model_path, count))
+  print(f'\nusing model {model_path} to generate {count} inputs...')
 
   # Restore the RNN model by building it and loading the weights.
   model = utils.build_model(hidden_layer_size * hidden_state_size,
@@ -98,7 +98,7 @@ def main(args):
     # Record their first byte and file length.
     new_files_bytes = []
     corpus_files_length = []
-    for i in range(BATCH_SIZE):
+    for _ in range(BATCH_SIZE):
       file_info = utils.random_element_from_list(corpus_files_info)
       first_byte, file_size = file_info['first_byte'], file_info['file_size']
       new_files_bytes.append([first_byte])
@@ -145,8 +145,9 @@ def main(args):
 
       with open(new_file_path, 'wb') as new_file:
         new_file.write(new_file_byte_array)
-      print('generate input: {}, feed byte: {}, input length: {}'.format(
-          new_file_path, new_files_bytes[i][0], new_file_length))
+      print(
+          f'generate input: {new_file_path}, feed byte: {new_files_bytes[i][0]}, input length: {new_file_length}'
+      )
 
       # Have we got enough inputs?
       new_units_count += 1
@@ -167,13 +168,11 @@ def validate_paths(args):
     True if all paths are valid, False otherwise.
   """
   if not os.path.exists(args.input_dir):
-    print(
-        'Input directory {} does not exist'.format(args.input_dir),
-        file=sys.stderr)
+    print(f'Input directory {args.input_dir} does not exist', file=sys.stderr)
     return False
 
   if not utils.validate_model_path(args.model_path):
-    print('Model {} does not exist'.format(args.model_path), file=sys.stderr)
+    print(f'Model {args.model_path} does not exist', file=sys.stderr)
     return False
 
   if not os.path.exists(args.output_dir):

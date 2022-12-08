@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """Python 3 entrypoint."""
+
 import importlib
 import os
 import sys
@@ -23,8 +24,7 @@ config_modules_path = os.path.join('config', 'modules')
 if os.path.exists(config_modules_path):
   sys.path.append(config_modules_path)
 
-gae_env = os.environ.get('GAE_ENV')
-if gae_env:
+if gae_env := os.environ.get('GAE_ENV'):
   import pkg_resources
   importlib.reload(pkg_resources)
 

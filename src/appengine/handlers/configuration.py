@@ -56,11 +56,8 @@ USER_PERMISSION_AUTO_CC_TYPES = [
 
 def get_value_by_name(item_list, name):
   """Return value for entry whose name matches the one in item list."""
-  for item in item_list:
-    if item['name'] == name:
-      return item['value']
-
-  return None
+  return next((item['value'] for item in item_list if item['name'] == name),
+              None)
 
 
 class Handler(base_handler.Handler):
@@ -223,25 +220,18 @@ class AddExternalUserPermission(base_handler.Handler):
         data_types.ExternalUserPermission.entity_kind == entity_kind,
         data_types.ExternalUserPermission.entity_name == entity_name)
 
-    permission = query.get()
-    if not permission:
-      # Doesn't exist, create new one.
-      permission = data_types.ExternalUserPermission(
-          email=email, entity_kind=entity_kind, entity_name=entity_name)
-
+    permission = query.get() or data_types.ExternalUserPermission(
+        email=email, entity_kind=entity_kind, entity_name=entity_name)
     permission.is_prefix = bool(is_prefix)
     permission.auto_cc = auto_cc
     permission.put()
 
     helpers.log('Configuration', helpers.MODIFY_OPERATION)
     template_values = {
-        'title':
-            'Success',
+        'title': 'Success',
         'message':
-            ('User %s permission for entity %s is successfully added. '
-             'Redirecting to the configuration page...') % (email, entity_name),
-        'redirect_url':
-            '/configuration',
+        f'User {email} permission for entity {entity_name} is successfully added. Redirecting to the configuration page...',
+        'redirect_url': '/configuration',
     }
     return self.render('message.html', template_values)
 
@@ -270,9 +260,8 @@ class DeleteExternalUserPermission(base_handler.Handler):
 
     if entity_kind == data_types.PermissionEntityKind.UPLOADER:
       entity_name = None
-    else:
-      if not entity_name:
-        raise helpers.EarlyExitException('No entity_name provided.', 400)
+    elif not entity_name:
+      raise helpers.EarlyExitException('No entity_name provided.', 400)
 
     # Check for existing permission.
     permission = data_types.ExternalUserPermission.query(

@@ -70,14 +70,12 @@ class CreateHandler(base_handler.Handler):
     is_local = not request.get('nfs', False)
 
     if not data_handler.create_data_bundle_bucket_and_iams(name, [user_email]):
-      raise helpers.EarlyExitException(
-          'Failed to create bucket %s.' % bucket_name, 400)
+      raise helpers.EarlyExitException(f'Failed to create bucket {bucket_name}.',
+                                       400)
 
-    data_bundle = data_types.DataBundle.query(
-        data_types.DataBundle.name == name).get()
-
-    if not data_bundle:
-      data_bundle = data_types.DataBundle()
+    data_bundle = (
+        data_types.DataBundle.query(data_types.DataBundle.name == name).get()
+        or data_types.DataBundle())
     data_bundle.name = name
     data_bundle.bucket_name = bucket_name
     data_bundle.is_local = is_local
@@ -85,10 +83,9 @@ class CreateHandler(base_handler.Handler):
 
     template_values = {
         'title':
-            'Success',
-        'message': (
-            'Upload data to the corpus using: '
-            'gsutil -d -m rsync -r <local_corpus_directory> %s' % bucket_url),
+        'Success',
+        'message':
+        f'Upload data to the corpus using: gsutil -d -m rsync -r <local_corpus_directory> {bucket_url}',
     }
     return self.render('message.html', template_values)
 

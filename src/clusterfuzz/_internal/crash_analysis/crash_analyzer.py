@@ -113,11 +113,7 @@ def address_to_integer(address):
 
 def has_marker(stacktrace, marker_list):
   """Return true if the stacktrace has atleast one marker in the marker list."""
-  for marker in marker_list:
-    if marker in stacktrace:
-      return True
-
-  return False
+  return any(marker in stacktrace for marker in marker_list)
 
 
 def ignore_stacktrace(crash_stacktrace):
@@ -133,12 +129,10 @@ def ignore_stacktrace(crash_stacktrace):
   if not stack_blacklist_regexes:
     return False
 
-  stack_blacklist_regex = re.compile(
-      r'(%s)' % '|'.join(stack_blacklist_regexes))
-  for line in crash_stacktrace.splitlines():
-    if stack_blacklist_regex.match(line):
-      return True
-  return False
+  stack_blacklist_regex = re.compile(f"({'|'.join(stack_blacklist_regexes)})")
+  return any(
+      stack_blacklist_regex.match(line)
+      for line in crash_stacktrace.splitlines())
 
 
 def is_crash(return_code, console_output):
@@ -146,8 +140,7 @@ def is_crash(return_code, console_output):
   if not return_code:
     return False
 
-  crash_signature = environment.get_value('CRASH_SIGNATURE')
-  if crash_signature:
+  if crash_signature := environment.get_value('CRASH_SIGNATURE'):
     return re.search(crash_signature, console_output)
 
   return True
@@ -179,10 +172,7 @@ def is_check_failure_crash(stacktrace):
     return True
 
   # Memory debugging tool CHECK failure.
-  if 'Sanitizer CHECK failed:' in stacktrace:
-    return True
-
-  return False
+  return 'Sanitizer CHECK failed:' in stacktrace
 
 
 def is_memory_tool_crash(stacktrace):
@@ -208,10 +198,7 @@ def is_memory_tool_crash(stacktrace):
     return True
 
   # Check if have a stacktrace start marker.
-  if has_marker(stacktrace, STACKTRACE_TOOL_MARKERS):
-    return True
-
-  return False
+  return bool(has_marker(stacktrace, STACKTRACE_TOOL_MARKERS))
 
 
 def is_null_dereference(int_address):
@@ -230,11 +217,8 @@ def has_signal_for_non_security_bug_type(stacktrace):
                re.MULTILINE):
     return True
 
-  for signature in SIGNAL_SIGNATURES_NOT_SECURITY:
-    if signature in stacktrace:
-      return True
-
-  return False
+  return any(
+      signature in stacktrace for signature in SIGNAL_SIGNATURES_NOT_SECURITY)
 
 
 def is_security_issue(crash_stacktrace, crash_type, crash_address):
@@ -260,12 +244,7 @@ def is_security_issue(crash_stacktrace, crash_type, crash_address):
     return True
 
   if crash_type == 'CHECK failure':
-    # TODO(ochang): Remove this once we pick up newer builds that distinguish
-    # DCHECKs from CHECKs.
-    checks_have_security_implication = environment.get_value(
-        'CHECKS_HAVE_SECURITY_IMPLICATION', False)
-    return checks_have_security_implication
-
+    return environment.get_value('CHECKS_HAVE_SECURITY_IMPLICATION', False)
   # Release SECURITY_CHECK in Blink shouldn't be marked as a security bug.
   if crash_type == 'Security CHECK failure':
     return False
@@ -332,10 +311,7 @@ def is_security_issue(crash_stacktrace, crash_type, crash_address):
   # This behavior can be changed by defining
   # |ASSERTS_HAVE_SECURITY_IMPLICATION| in job definition.
   if crash_type == 'ASSERT' or 'ASSERTION FAILED' in crash_stacktrace:
-    asserts_have_security_implication = environment.get_value(
-        'ASSERTS_HAVE_SECURITY_IMPLICATION', True)
-    return asserts_have_security_implication
-
+    return environment.get_value('ASSERTS_HAVE_SECURITY_IMPLICATION', True)
   # Timeouts/OOMs.
   if crash_type in ('Timeout', 'Out-of-memory'):
     return False
@@ -359,22 +335,17 @@ def is_security_issue(crash_stacktrace, crash_type, crash_address):
   if crash_type not in GENERIC_CRASH_TYPES:
     return True
 
-  # Crash on an unknown address.
-  if crash_type in GENERIC_CRASH_TYPES:
-    # If the address is not near null, then we it is highly likely
-    # to have security consequences.
-    int_address = address_to_integer(crash_address)
+  # If the address is not near null, then we it is highly likely
+  # to have security consequences.
+  int_address = address_to_integer(crash_address)
 
-    # This indicates that there was no assert, but a hard crash.
-    # (as the assert would be caught by checks above). So, it
-    # does have any security implication.
-    if is_assert_crash_address(int_address):
-      return False
+  # This indicates that there was no assert, but a hard crash.
+  # (as the assert would be caught by checks above). So, it
+  # does have any security implication.
+  if is_assert_crash_address(int_address):
+    return False
 
-    if not is_null_dereference(int_address):
-      return True
-
-  return False
+  return not is_null_dereference(int_address)
 
 
 def has_ubsan_error(stacktrace):
@@ -396,11 +367,7 @@ def has_ubsan_error(stacktrace):
     ubsan_ignore_signatures = f.read().splitlines()
 
   for line in stacktrace.splitlines():
-    ignore_line = False
-    for signature in ubsan_ignore_signatures:
-      if signature in line:
-        ignore_line = True
-
+    ignore_line = any(signature in line for signature in ubsan_ignore_signatures)
     if ignore_line:
       continue
 

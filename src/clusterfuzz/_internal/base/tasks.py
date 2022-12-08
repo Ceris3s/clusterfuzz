@@ -88,7 +88,7 @@ class Error(Exception):
 class InvalidRedoTask(Error):
 
   def __init__(self, task):
-    super().__init__("The task '%s' is invalid." % task)
+    super().__init__(f"The task '{task}' is invalid.")
 
 
 def queue_suffix_for_platform(platform):
@@ -98,8 +98,7 @@ def queue_suffix_for_platform(platform):
 
 def default_queue_suffix():
   """Get the queue suffix for the current platform."""
-  queue_override = environment.get_value('QUEUE_OVERRIDE')
-  if queue_override:
+  if queue_override := environment.get_value('QUEUE_OVERRIDE'):
     return queue_suffix_for_platform(queue_override)
 
   return queue_suffix_for_platform(environment.platform())
@@ -140,10 +139,7 @@ def get_command_override():
 def get_fuzz_task():
   """Try to get a fuzz task."""
   argument, job = fuzzer_selection.get_fuzz_task_payload()
-  if not argument:
-    return None
-
-  return Task('fuzz', argument, job)
+  return Task('fuzz', argument, job) if argument else None
 
 
 def get_high_end_task():
@@ -283,7 +279,7 @@ class PubSubTask(Task):
 
     # Extend the deadline until the ETA, or MAX_ACK_DEADLINE.
     time_until_eta = int((self.eta - now).total_seconds())
-    logs.log('Deferring task "%s".' % self.payload())
+    logs.log(f'Deferring task "{self.payload()}".')
     self._pubsub_message.modify_ack_deadline(
         min(pubsub.MAX_ACK_DEADLINE, time_until_eta))
     return True
@@ -335,14 +331,14 @@ class _PubSubLeaserThread(threading.Thread):
       try:
         time_left = latest_end_time - time.time()
         if time_left <= 0:
-          logs.log('Lease reached maximum lease time of {} seconds, '
-                   'stopping renewal.'.format(self._max_lease_seconds))
+          logs.log(
+              f'Lease reached maximum lease time of {self._max_lease_seconds} seconds, stopping renewal.'
+          )
           break
 
         extension_seconds = min(self.EXTENSION_TIME_SECONDS, time_left)
 
-        logs.log(
-            'Renewing lease for task by {} seconds.'.format(extension_seconds))
+        logs.log(f'Renewing lease for task by {extension_seconds} seconds.')
         self._message.modify_ack_deadline(extension_seconds)
 
         # Schedule renewals earlier than the extension to avoid race conditions
@@ -413,11 +409,10 @@ def queue_for_testcase(testcase):
 
 def queue_for_job(job_name, is_high_end=False):
   """Queue for job."""
-  job = data_types.Job.query(data_types.Job.name == job_name).get()
-  if not job:
-    raise Error('Job {} not found.'.format(job_name))
-
-  return queue_for_platform(job.platform, is_high_end)
+  if job := data_types.Job.query(data_types.Job.name == job_name).get():
+    return queue_for_platform(job.platform, is_high_end)
+  else:
+    raise Error(f'Job {job_name} not found.')
 
 
 def redo_testcase(testcase, tasks, user_email):

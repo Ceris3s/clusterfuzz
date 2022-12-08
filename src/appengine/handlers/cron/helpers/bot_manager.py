@@ -237,15 +237,12 @@ class InstanceGroup(Resource):
     """Create this instance group."""
     manager_body = {
         'baseInstanceName': base_instance_name,
-        'instanceTemplate': 'global/instanceTemplates/' + instance_template,
+        'instanceTemplate': f'global/instanceTemplates/{instance_template}',
         'name': self.name,
         'targetSize': size,
     }
 
-    result_proc = None
-    if wait_for_instances:
-      result_proc = self._handle_size_change
-
+    result_proc = self._handle_size_change if wait_for_instances else None
     self.execute(
         self.compute.instanceGroupManagers().insert(
             project=self.project_id, zone=self.zone, body=manager_body),
@@ -253,10 +250,7 @@ class InstanceGroup(Resource):
 
   def resize(self, new_size, wait_for_instances=True):
     """Resize this instance group."""
-    result_proc = None
-    if wait_for_instances:
-      result_proc = self._handle_size_change
-
+    result_proc = self._handle_size_change if wait_for_instances else None
     self.execute(
         self.compute.instanceGroupManagers().resize(
             project=self.project_id,

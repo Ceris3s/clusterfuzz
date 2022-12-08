@@ -35,11 +35,7 @@ def has_values_matching(target, expression):
 
 
 def has_value(target, value):
-  for target_value in target:
-    if target_value.lower() == value.lower():
-      return True
-
-  return False
+  return any(target_value.lower() == value.lower() for target_value in target)
 
 
 class ChangeList(list):
@@ -167,7 +163,7 @@ class Issue(object):
   def remove_component(self, component):
     if self.has_component(component):
       self._remove_tracked_value(self.components, component)
-      self.add_component('-%s' % component)
+      self.add_component(f'-{component}')
 
   def remove_components_by_prefix(self, prefix):
     components = self.get_components_by_prefix(prefix)
@@ -182,7 +178,7 @@ class Issue(object):
   def remove_label(self, label):
     if self.has_label(label):
       self._remove_tracked_value(self.labels, label)
-      self.add_label('-%s' % label)
+      self.add_label(f'-{label}')
 
   def remove_label_by_prefix(self, prefix):
     labels = self.get_labels_by_prefix(prefix)
@@ -200,7 +196,7 @@ class Issue(object):
       self.dirty = True
 
   def get_components_by_prefix(self, prefix):
-    return get_values_matching(self.components, '%s.*' % prefix)
+    return get_values_matching(self.components, f'{prefix}.*')
 
   def get_components_containing(self, expression):
     return get_values_containing(self.components, expression)
@@ -218,7 +214,7 @@ class Issue(object):
     return has_value(self.components, value)
 
   def get_labels_by_prefix(self, prefix):
-    return get_values_matching(self.labels, '%s.*' % prefix)
+    return get_values_matching(self.labels, f'{prefix}.*')
 
   def get_labels_containing(self, expression):
     return get_values_containing(self.labels, expression)
@@ -227,7 +223,7 @@ class Issue(object):
     return get_values_matching(self.labels, expression)
 
   def has_label_by_prefix(self, prefix):
-    return has_values_containing(self.labels, '%s.*' % prefix)
+    return has_values_containing(self.labels, f'{prefix}.*')
 
   def has_label_containing(self, expression):
     return has_values_containing(self.labels, expression)
@@ -242,16 +238,11 @@ class Issue(object):
     return has_value(self.cc, value)
 
   def has_comment_with_label(self, label):
-    for comment in self.get_comments():
-      if comment.has_label(label):
-        return True
-    return False
+    return any(comment.has_label(label) for comment in self.get_comments())
 
   def has_comment_with_label_by_prefix(self, prefix):
-    for comment in self.get_comments():
-      if comment.get_labels_by_prefix(prefix):
-        return True
-    return False
+    return any(
+        comment.get_labels_by_prefix(prefix) for comment in self.get_comments())
 
   def get_comments(self):
     if not self.comments and self.itm:

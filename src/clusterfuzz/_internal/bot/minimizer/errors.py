@@ -32,7 +32,7 @@ class NoCommandError(Exception):
 class TokenizationFailureError(Exception):
 
   def __init__(self, minimization_type):
-    Exception.__init__(self, 'Unable to perform ' + minimization_type + '.')
+    Exception.__init__(self, f'Unable to perform {minimization_type}.')
 
 
 class AntlrDecodeError(Exception):

@@ -50,11 +50,7 @@ def convert_entry_to_comment(entry):
 
 def convert_entry_to_issue(entry, itm, old_issue=None):
   """Convert an issue entry object into a issue object."""
-  if old_issue:
-    issue = old_issue
-  else:
-    issue = Issue()
-
+  issue = old_issue or Issue()
   issue.blocked_on = [e['issueId'] for e in entry.get('blockedOn', [])]
   issue.blocking = [e['issueId'] for e in entry.get('blocking', [])]
   issue.cc = ChangeList([e['name'] for e in entry.get('cc', [])])
@@ -280,10 +276,7 @@ class IssueTrackerManager(object):
         issueId=issue_id,
         startIndex=0,
         maxResults=1))
-    if 'items' in feed:
-      return convert_entry_to_comment(feed['items'][0])
-
-    return None
+    return convert_entry_to_comment(feed['items'][0]) if 'items' in feed else None
 
   def get_last_comment(self, issue_id):
     """Get last comment for an issue."""
@@ -293,10 +286,7 @@ class IssueTrackerManager(object):
         issueId=issue_id,
         startIndex=total_results - 1,
         maxResults=1))
-    if 'items' in feed:
-      return convert_entry_to_comment(feed['items'][0])
-
-    return None
+    return convert_entry_to_comment(feed['items'][0]) if 'items' in feed else None
 
   def get_issue(self, issue_id):
     """Retrieve an issue object with a specific id."""
@@ -327,8 +317,7 @@ class IssueTrackerManager(object):
         q=query_string,
         startIndex=0,
         maxResults=0))
-    total_results = feed.get('totalResults', '')
-    if total_results:
+    if total_results := feed.get('totalResults', ''):
       return int(total_results)
 
     return 0

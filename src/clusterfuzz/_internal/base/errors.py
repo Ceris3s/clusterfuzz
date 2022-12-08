@@ -36,11 +36,7 @@ def error_in_list(error_stacktrace, error_list):
   error_stacktrace = error_stacktrace.lower()
   error_list = [error.lower() for error in error_list]
 
-  for error in error_list:
-    if error in error_stacktrace:
-      return True
-
-  return False
+  return any(error in error_stacktrace for error in error_list)
 
 
 class Error(Exception):
@@ -123,7 +119,7 @@ class ConfigParseError(Error):
     super().__init__()
 
   def __str__(self):
-    return 'Failed to parse config file %s.' % self.file_path
+    return f'Failed to parse config file {self.file_path}.'
 
 
 class InvalidConfigKey(Error):
@@ -134,4 +130,4 @@ class InvalidConfigKey(Error):
     super().__init__()
 
   def __str__(self):
-    return 'Invalid config key %s.' % self.key_name
+    return f'Invalid config key {self.key_name}.'

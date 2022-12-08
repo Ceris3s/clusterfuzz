@@ -120,11 +120,10 @@ def get_testcase_by_id(testcase_id):
   if not testcase_id or not str(testcase_id).isdigit() or int(testcase_id) == 0:
     raise errors.InvalidTestcaseError
 
-  testcase = ndb.Key(data_types.Testcase, int(testcase_id)).get()
-  if not testcase:
+  if testcase := ndb.Key(data_types.Testcase, int(testcase_id)).get():
+    return testcase
+  else:
     raise errors.InvalidTestcaseError
-
-  return testcase
 
 
 def find_testcase(project_name,
@@ -188,11 +187,9 @@ def get_crash_type_string(testcase):
   crash_stacktrace = get_stacktrace(testcase)
   match = re.match(CRASH_TYPE_VALUE_REGEX_MAP[crash_type], crash_stacktrace,
                    re.DOTALL)
-  if not match:
-    return crash_type
-
-  return '%s (exceeds %s %s)' % (crash_type, match.group(1),
-                                 CRASH_TYPE_DIMENSION_MAP[crash_type])
+  return (
+      f'{crash_type} (exceeds {match[1]} {CRASH_TYPE_DIMENSION_MAP[crash_type]})'
+      if match else crash_type)
 
 
 def filter_stacktrace(stacktrace):
@@ -216,7 +213,7 @@ def filter_stacktrace(stacktrace):
     return unicode_stacktrace[(-1 * data_types.STACKTRACE_LENGTH_LIMIT):]
 
   shell.remove_file(tmp_stacktrace_file)
-  return '%s%s' % (data_types.BLOBSTORE_STACK_PREFIX, key)
+  return f'{data_types.BLOBSTORE_STACK_PREFIX}{key}'
 
 
 def get_issue_summary(testcase):
@@ -230,8 +227,7 @@ def get_issue_summary(testcase):
   summary_prefix = fuzzer_summary_prefix or job_summary_prefix or ''
 
   issue_summary = summary_prefix
-  binary_name = testcase.get_metadata('fuzzer_binary_name')
-  if binary_name:
+  if binary_name := testcase.get_metadata('fuzzer_binary_name'):
     if summary_prefix:
       issue_summary += ':'
     issue_summary += binary_name
@@ -246,7 +242,7 @@ def get_issue_summary(testcase):
       'Security DCHECK failure'
   ]:
     issue_summary += (
-        testcase.crash_type + ': ' + testcase.crash_state.splitlines()[0])
+        f'{testcase.crash_type}: {testcase.crash_state.splitlines()[0]}')
     return issue_summary
 
   # Special case for bad-cast style testcases.
@@ -258,7 +254,7 @@ def get_issue_summary(testcase):
 
     # Add the crash function if available.
     if len(filtered_crash_state_lines) > 1:
-      issue_summary += ' in ' + filtered_crash_state_lines[1]
+      issue_summary += f' in {filtered_crash_state_lines[1]}'
 
     return issue_summary
 
@@ -274,7 +270,7 @@ def get_issue_summary(testcase):
     # Special case for empty stacktrace.
     issue_summary += ' with empty stacktrace'
   else:
-    issue_summary += ' in ' + testcase.crash_state.splitlines()[0]
+    issue_summary += f' in {testcase.crash_state.splitlines()[0]}'
 
   return issue_summary
 
@@ -296,19 +292,17 @@ def get_fuzzer_display(testcase):
         fully_qualified_name=testcase.fuzzer_name)
 
   fuzz_target = get_fuzz_target(testcase.overridden_fuzzer_name)
-  if not fuzz_target:
-    # Legacy testcases.
-    return FuzzerDisplay(
-        engine=testcase.fuzzer_name,
-        target=testcase.get_metadata('fuzzer_binary_name'),
-        name=testcase.fuzzer_name,
-        fully_qualified_name=testcase.overridden_fuzzer_name)
-
-  return FuzzerDisplay(
+  return (FuzzerDisplay(
       engine=fuzz_target.engine,
       target=fuzz_target.binary,
       name=fuzz_target.engine,
-      fully_qualified_name=fuzz_target.fully_qualified_name())
+      fully_qualified_name=fuzz_target.fully_qualified_name(),
+  ) if fuzz_target else FuzzerDisplay(
+      engine=testcase.fuzzer_name,
+      target=testcase.get_metadata('fuzzer_binary_name'),
+      name=testcase.fuzzer_name,
+      fully_qualified_name=testcase.overridden_fuzzer_name,
+  ))
 
 
 def filter_arguments(arguments, fuzz_target_name=None):
@@ -358,13 +352,12 @@ def _get_memory_tool_options(testcase):
 
 def _get_bazel_test_args(arguments, sanitizer_options):
   """Return arguments to pass to a bazel test."""
-  result = []
-  for sanitizer_option in sanitizer_options:
-    result.append('--test_env=%s' % sanitizer_option)
-
-  for argument in shlex.split(arguments):
-    result.append('--test_arg=%s' % quote(argument))
-
+  result = [
+      f'--test_env={sanitizer_option}'
+      for sanitizer_option in sanitizer_options
+  ]
+  result.extend(
+      f'--test_arg={quote(argument)}' for argument in shlex.split(arguments))
   return ' '.join(result)
 
 
@@ -388,11 +381,7 @@ def format_issue_information(testcase, format_string):
   # Multi-target binaries.
   fuzz_target_parts = fuzz_target.split('@')
   base_fuzz_target = fuzz_target_parts[0]
-  if len(fuzz_target_parts) == 2:
-    fuzz_test_name = fuzz_target_parts[1]
-  else:
-    fuzz_test_name = ''
-
+  fuzz_test_name = fuzz_target_parts[1] if len(fuzz_target_parts) == 2 else ''
   result = format_string.replace('%TESTCASE%', testcase_id)
   result = result.replace('%PROJECT%', project_name)
   result = result.replace('%REVISION%', last_tested_crash_revision)
@@ -424,15 +413,11 @@ def get_formatted_reproduction_help(testcase):
 
 def get_plaintext_help_text(testcase, config):
   """Get the help text for this testcase for display in issue descriptions."""
-  # Prioritize a HELP_FORMAT message if available.
-  formatted_help = get_formatted_reproduction_help(testcase)
-  if formatted_help:
+  if formatted_help := get_formatted_reproduction_help(testcase):
     return formatted_help
 
-  # Show a default message and HELP_URL if only it has been supplied.
-  help_url = get_reproduction_help_url(testcase, config)
-  if help_url:
-    return 'See %s for instructions to reproduce this bug locally.' % help_url
+  if help_url := get_reproduction_help_url(testcase, config):
+    return f'See {help_url} for instructions to reproduce this bug locally.'
 
   return ''
 
@@ -444,7 +429,7 @@ def get_fixed_range_url(testcase):
     return None
 
   # Testcase is unreproducible or coming from a custom binary.
-  if testcase.fixed == 'NA' or testcase.fixed == 'Yes':
+  if testcase.fixed in ['NA', 'Yes']:
     return None
 
   return TESTCASE_REVISION_RANGE_URL.format(
@@ -507,10 +492,7 @@ def get_issue_description(testcase,
   content_string += 'Crash Type: %s\n' % get_crash_type_string(testcase)
   content_string += 'Crash Address: %s\n' % testcase.crash_address
 
-  if hide_crash_state:
-    crash_state = '...see report...'
-  else:
-    crash_state = testcase.crash_state
+  crash_state = '...see report...' if hide_crash_state else testcase.crash_state
   content_string += 'Crash State:\n%s\n' % (
       utils.indent_string(crash_state + '\n', 2))
 
@@ -562,10 +544,9 @@ def get_issue_description(testcase,
   # Add additional body text from metadata.
   issue_metadata = testcase.get_metadata('issue_metadata', {})
   additional_fields = issue_metadata.get('additional_fields', {})
-  additional_fields_strs = []
-  for key, value in additional_fields.items():
-    additional_fields_strs.append(f'{key}: {value}')
-  if additional_fields_strs:
+  if additional_fields_strs := [
+      f'{key}: {value}' for key, value in additional_fields.items()
+  ]:
     content_string += '\n\n' + '\n'.join(additional_fields_strs)
 
   return content_string
@@ -629,9 +610,8 @@ def handle_duplicate_entry(testcase):
   existing_testcase_id = existing_testcase.key.id()
   if (not testcase.bug_information and
       not existing_testcase.one_time_crasher_flag):
-    metadata = data_types.TestcaseUploadMetadata.query(
-        data_types.TestcaseUploadMetadata.testcase_id == testcase_id).get()
-    if metadata:
+    if metadata := data_types.TestcaseUploadMetadata.query(
+        data_types.TestcaseUploadMetadata.testcase_id == testcase_id).get():
       metadata.status = 'Duplicate'
       metadata.duplicate_of = existing_testcase_id
       metadata.security_flag = existing_testcase.security_flag
@@ -645,9 +625,8 @@ def handle_duplicate_entry(testcase):
 
   elif (not existing_testcase.bug_information and
         not testcase.one_time_crasher_flag):
-    metadata = data_types.TestcaseUploadMetadata.query(
-        data_types.TestcaseUploadMetadata.testcase_id == testcase_id).get()
-    if metadata:
+    if metadata := data_types.TestcaseUploadMetadata.query(
+        data_types.TestcaseUploadMetadata.testcase_id == testcase_id).get():
       metadata.status = 'Duplicate'
       metadata.duplicate_of = testcase_id
       metadata.security_flag = testcase.security_flag
@@ -664,7 +643,7 @@ def is_first_retry_for_task(testcase, reset_after_retry=False):
   """Returns true if this task is tried atleast once. Only applicable for
   analyze and progression tasks."""
   task_name = environment.get_value('TASK_NAME')
-  retry_key = '%s_retry' % task_name
+  retry_key = f'{task_name}_retry'
   retry_flag = testcase.get_metadata(retry_key)
   if not retry_flag:
     # Update the metadata key since now we have tried it once.
@@ -717,10 +696,7 @@ def store_testcase(crash, fuzzed_keys, minimized_keys, regression, fixed,
                    window_argument, timeout_multiplier, minimized_arguments):
   """Create a testcase and store it in the datastore using remote api."""
   # Initialize variable to prevent invalid values.
-  if archived:
-    archive_state = data_types.ArchiveStatus.FUZZED
-  else:
-    archive_state = 0
+  archive_state = data_types.ArchiveStatus.FUZZED if archived else 0
   if not gestures:
     gestures = []
   if not redzone:
@@ -775,9 +751,7 @@ def store_testcase(crash, fuzzed_keys, minimized_keys, regression, fixed,
       (testcase_id, not testcase.one_time_crasher_flag, testcase.security_flag,
        testcase.binary_flag, testcase.crash_type, testcase.crash_state))
 
-  # Update global blacklist to avoid finding this leak again (if needed).
-  is_lsan_enabled = environment.get_value('LSAN')
-  if is_lsan_enabled:
+  if is_lsan_enabled := environment.get_value('LSAN'):
     from clusterfuzz._internal.fuzzing import leak_blacklist
     leak_blacklist.add_crash_to_global_blacklist_if_needed(testcase)
 
@@ -786,12 +760,10 @@ def store_testcase(crash, fuzzed_keys, minimized_keys, regression, fixed,
 
 def set_initial_testcase_metadata(testcase):
   """Set various testcase metadata fields during testcase initialization."""
-  build_key = environment.get_value('BUILD_KEY')
-  if build_key:
+  if build_key := environment.get_value('BUILD_KEY'):
     testcase.set_metadata('build_key', build_key, update_testcase=False)
 
-  build_url = environment.get_value('BUILD_URL')
-  if build_url:
+  if build_url := environment.get_value('BUILD_URL'):
     testcase.set_metadata('build_url', build_url, update_testcase=False)
 
   gn_args_path = environment.get_value('GN_ARGS_PATH', '')
@@ -816,7 +788,7 @@ def update_testcase_comment(testcase, task_state, message=None):
   """Add task status and message to the test case's comment field."""
   bot_name = environment.get_value('BOT_NAME', 'Unknown')
   task_name = environment.get_value('TASK_NAME', 'Unknown')
-  task_string = '%s task' % task_name.capitalize()
+  task_string = f'{task_name.capitalize()} task'
   timestamp = utils.current_date_time()
 
   # For some tasks like blame, progression and impact, we need to delete lines
@@ -826,10 +798,9 @@ def update_testcase_comment(testcase, task_state, message=None):
     pattern = r'.*?: %s.*\n' % task_string
     testcase.comments = re.sub(pattern, '', testcase.comments)
 
-  testcase.comments += '[%s] %s: %s %s' % (timestamp, bot_name, task_string,
-                                           task_state)
+  testcase.comments += f'[{timestamp}] {bot_name}: {task_string} {task_state}'
   if message:
-    testcase.comments += ': %s' % message.rstrip('.')
+    testcase.comments += f": {message.rstrip('.')}"
   testcase.comments += '.\n'
 
   # Truncate if too long.
@@ -877,11 +848,9 @@ def critical_tasks_completed(testcase):
     return True
 
   # For non-chromium projects, impact and blame tasks are not applicable.
-  if not utils.is_chromium():
-    return testcase.minimized_keys and testcase.regression
-
-  return bool(testcase.minimized_keys and testcase.regression and
-              testcase.is_impact_set_flag)
+  return (bool(testcase.minimized_keys and testcase.regression
+               and testcase.is_impact_set_flag) if utils.is_chromium() else
+          testcase.minimized_keys and testcase.regression)
 
 
 # ------------------------------------------------------------------------------
@@ -891,17 +860,14 @@ def critical_tasks_completed(testcase):
 
 def get_build_state(job_type, crash_revision):
   """Return whether a build is unmarked, good or bad."""
-  build = data_types.BuildMetadata.query(
+  if build := data_types.BuildMetadata.query(
       data_types.BuildMetadata.job_type == job_type,
-      data_types.BuildMetadata.revision == crash_revision).get()
-
-  if not build:
+      data_types.BuildMetadata.revision == crash_revision,
+  ).get():
+    return (data_types.BuildState.BAD
+            if build.bad_build else data_types.BuildState.GOOD)
+  else:
     return data_types.BuildState.UNMARKED
-
-  if build.bad_build:
-    return data_types.BuildState.BAD
-
-  return data_types.BuildState.GOOD
 
 
 def add_build_metadata(job_type,
@@ -920,13 +886,13 @@ def add_build_metadata(job_type,
 
   if is_bad_build:
     logs.log_error(
-        'Bad build %s.' % job_type,
+        f'Bad build {job_type}.',
         revision=crash_revision,
         job_type=job_type,
-        output=console_output)
+        output=console_output,
+    )
   else:
-    logs.log(
-        'Good build %s.' % job_type, revision=crash_revision, job_type=job_type)
+    logs.log(f'Good build {job_type}.', revision=crash_revision, job_type=job_type)
   return build
 
 
@@ -945,24 +911,17 @@ def create_data_bundle_bucket_and_iams(data_bundle_name, emails):
   if not iam_policy:
     return False
 
-  members = []
-
   # Add access for the domains allowed in project.
   domains = local_config.AuthConfig().get('whitelisted_domains', default=[])
-  for domain in domains:
-    members.append('domain:%s' % domain)
-
+  members = [f'domain:{domain}' for domain in domains]
   # Add access for the emails provided in function arguments.
-  for email in emails:
-    members.append('user:%s' % email)
-
+  members.extend(f'user:{email}' for email in emails)
   if not members:
     # No members to add, bail out.
     return True
 
-  binding = storage.get_bucket_iam_binding(iam_policy,
-                                           DATA_BUNDLE_DEFAULT_BUCKET_IAM_ROLE)
-  if binding:
+  if binding := storage.get_bucket_iam_binding(
+      iam_policy, DATA_BUNDLE_DEFAULT_BUCKET_IAM_ROLE):
     binding['members'] = members
   else:
     binding = {
@@ -975,22 +934,19 @@ def create_data_bundle_bucket_and_iams(data_bundle_name, emails):
 
 
 def bucket_domain_suffix():
-  domain = local_config.ProjectConfig().get('bucket_domain_suffix')
-  if not domain:
-    domain = '%s.appspot.com' % utils.get_application_id()
-
-  return domain
+  return (local_config.ProjectConfig().get('bucket_domain_suffix')
+          or f'{utils.get_application_id()}.appspot.com')
 
 
 def get_data_bundle_bucket_name(data_bundle_name):
   """Return data bundle bucket name on GCS."""
   domain = bucket_domain_suffix()
-  return '%s-corpus.%s' % (data_bundle_name, domain)
+  return f'{data_bundle_name}-corpus.{domain}'
 
 
 def get_data_bundle_bucket_url(data_bundle_name):
   """Return data bundle bucket url on GCS."""
-  return 'gs://%s' % get_data_bundle_bucket_name(data_bundle_name)
+  return f'gs://{get_data_bundle_bucket_name(data_bundle_name)}'
 
 
 def get_value_from_fuzzer_environment_string(fuzzer_name,
@@ -1058,7 +1014,7 @@ def update_task_status(task_name, status, expiry_interval=None):
       # We need to update the status under all circumstances.
       # Failing to update 'completed' status causes another bot
       # that picked up this job to bail out.
-      logs.log_error('Unable to update %s task metadata. Retrying.' % task_name)
+      logs.log_error(f'Unable to update {task_name} task metadata. Retrying.')
       time.sleep(utils.random_number(1, failure_wait_interval))
 
 
@@ -1135,11 +1091,7 @@ def get_component_name(job_type):
 
   match = re.match(r'.*BUCKET_PATH[^\r\n]*-([a-zA-Z0-9]+)-component',
                    job.get_environment_string(), re.DOTALL)
-  if not match:
-    return ''
-
-  component_name = match.group(1)
-  return component_name
+  return match[1] if match else ''
 
 
 @memoize.wrap(memoize.Memcache(MEMCACHE_TTL_IN_SECONDS))
@@ -1166,10 +1118,7 @@ def get_value_from_environment_string(environment_string,
   """Return the first value matching the pattern from the environment string."""
   pattern = r'%s\s*=\s*(.*)' % variable_pattern
   match = re.search(pattern, environment_string)
-  if not match:
-    return default
-
-  return match.group(1).strip()
+  return match[1].strip() if match else default
 
 
 def get_value_from_job_definition(job_type, variable_pattern, default=None):
@@ -1178,10 +1127,7 @@ def get_value_from_job_definition(job_type, variable_pattern, default=None):
     return default
 
   job = data_types.Job.query(data_types.Job.name == job_type).get()
-  if not job:
-    return default
-
-  return job.get_environment().get(variable_pattern, default)
+  return job.get_environment().get(variable_pattern, default) if job else default
 
 
 def get_value_from_job_definition_or_environment(job_type,

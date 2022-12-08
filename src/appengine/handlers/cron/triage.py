@@ -84,13 +84,8 @@ def _is_bug_filed(testcase):
   if testcase.bug_information:
     return True
 
-  # Re-check our stored metadata so that we don't file the same testcase twice.
-  is_bug_filed_for_testcase = data_types.FiledBug.query(
-      data_types.FiledBug.testcase_id == testcase.key.id()).get()
-  if is_bug_filed_for_testcase:
-    return True
-
-  return False
+  return bool(is_bug_filed_for_testcase := data_types.FiledBug.query(
+      data_types.FiledBug.testcase_id == testcase.key.id()).get())
 
 
 def _is_crash_important(testcase):
@@ -111,10 +106,10 @@ def _is_crash_important(testcase):
 
   # Ensure that there is no reproducible testcase in our group.
   if testcase.group_id:
-    other_reproducible_testcase = data_types.Testcase.query(
+    if other_reproducible_testcase := data_types.Testcase.query(
         data_types.Testcase.group_id == testcase.group_id,
-        ndb_utils.is_false(data_types.Testcase.one_time_crasher_flag)).get()
-    if other_reproducible_testcase:
+        ndb_utils.is_false(data_types.Testcase.one_time_crasher_flag),
+    ).get():
       # There is another reproducible testcase in our group. So, this crash is
       # not important.
       return False
@@ -130,14 +125,13 @@ def _is_crash_important(testcase):
       block='day',
       days=data_types.FILE_CONSISTENT_UNREPRODUCIBLE_TESTCASE_DEADLINE,
       group_by='reproducible_flag',
-      where_clause=(
-          'crash_type = %s AND crash_state = %s AND security_flag = %s' %
-          (json.dumps(testcase.crash_type), json.dumps(testcase.crash_state),
-           json.dumps(testcase.security_flag))),
+      where_clause=
+      f'crash_type = {json.dumps(testcase.crash_type)} AND crash_state = {json.dumps(testcase.crash_state)} AND security_flag = {json.dumps(testcase.security_flag)}',
       group_having_clause='',
       sort_by='total_count',
       offset=0,
-      limit=1)
+      limit=1,
+  )
 
   # Calculate total crash count and crash days count.
   crash_days_indices = set([])

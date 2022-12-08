@@ -34,10 +34,12 @@ def get_result(testcase, end, block, days, group_by):
 
   _, rows = crash_stats.get(query, crash_stats.Query(), 0, 1)
 
-  if not rows:
-    return {'end': end, 'days': days, 'block': block, 'groups': []}
-
-  return rows[0]
+  return (rows[0] if rows else {
+      'end': end,
+      'days': days,
+      'block': block,
+      'groups': []
+  })
 
 
 class Handler(base_handler.Handler):

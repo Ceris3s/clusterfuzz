@@ -61,8 +61,9 @@ def _add_default_issue_metadata(testcase):
     if new_value == uploader_value:
       continue
 
-    logs.log('Updating issue metadata for {} from {} to {}.'.format(
-        key, uploader_value, new_value))
+    logs.log(
+        f'Updating issue metadata for {key} from {uploader_value} to {new_value}.'
+    )
     testcase.set_metadata(key, new_value)
 
 
@@ -106,8 +107,7 @@ def execute_task(testcase_id, job_type):
   metadata = data_types.TestcaseUploadMetadata.query(
       data_types.TestcaseUploadMetadata.testcase_id == int(testcase_id)).get()
   if not metadata:
-    logs.log_error(
-        'Testcase %s has no associated upload metadata.' % testcase_id)
+    logs.log_error(f'Testcase {testcase_id} has no associated upload metadata.')
     testcase.key.delete()
     return
 
@@ -166,10 +166,9 @@ def execute_task(testcase_id, job_type):
   # Update minimized arguments and use ones provided during user upload.
   if not testcase.minimized_arguments:
     minimized_arguments = environment.get_value('APP_ARGS') or ''
-    additional_command_line_flags = testcase.get_metadata(
-        'uploaded_additional_args')
-    if additional_command_line_flags:
-      minimized_arguments += ' %s' % additional_command_line_flags
+    if additional_command_line_flags := testcase.get_metadata(
+        'uploaded_additional_args'):
+      minimized_arguments += f' {additional_command_line_flags}'
     environment.set_value('APP_ARGS', minimized_arguments)
     testcase.minimized_arguments = minimized_arguments
 

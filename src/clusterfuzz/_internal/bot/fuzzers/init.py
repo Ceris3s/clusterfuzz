@@ -21,11 +21,7 @@ from clusterfuzz.fuzz import engine
 
 def run(include_private=True, include_lowercase=False):
   """Initialise builtin fuzzing engines."""
-  if include_private:
-    engines = fuzzing.ENGINES
-  else:
-    engines = fuzzing.PUBLIC_ENGINES
-
+  engines = fuzzing.ENGINES if include_private else fuzzing.PUBLIC_ENGINES
   for engine_name in engines:
     mod = importlib.import_module(
         f'clusterfuzz._internal.bot.fuzzers.{engine_name}.engine')

@@ -31,16 +31,13 @@ class Handler(base_handler.Handler):
     issues = issue_tracker_utils.get_similar_issues(
         issue_tracker, testcase, only_open=only_open)
 
-    items = []
-    for entry in issues:
-      items.append({
-          'owner': entry.assignee,
-          'reporter': entry.reporter,
-          'status': entry.status,
-          'title': entry.title,
-          'id': entry.id
-      })
-
+    items = [{
+        'owner': entry.assignee,
+        'reporter': entry.reporter,
+        'status': entry.status,
+        'title': entry.title,
+        'id': entry.id,
+    } for entry in issues]
     items = sorted(items, key=lambda k: k['id'])
     return [{
         'issue': item,

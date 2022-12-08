@@ -47,7 +47,7 @@ class _FifoRequestCache(memoize.FifoInMemory):
       logs.log_error('No container found for cache.')
       return None
 
-    key = '__cache:' + self._cache_key
+    key = f'__cache:{self._cache_key}'
 
     backing = getattr(cache_backing, key, None)
     if backing is None:

@@ -71,7 +71,7 @@ def set_value(key, value):
   try:
     config.__setattr__(key, value)
   except UnicodeDecodeError:
-    value = '%s%s' % (BASE64_MARKER, base64.b64encode(value))
+    value = f'{BASE64_MARKER}{base64.b64encode(value)}'
     config.__setattr__(key, value)
 
   config.put()

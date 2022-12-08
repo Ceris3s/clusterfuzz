@@ -50,7 +50,7 @@ if sys.version_info.major == 3:
 
 def _rename_dll_for_update(absolute_filepath):
   """Rename a DLL to allow for updates."""
-  backup_filepath = absolute_filepath + '.bak.' + str(int(time.time()))
+  backup_filepath = f'{absolute_filepath}.bak.{int(time.time())}'
   os.rename(absolute_filepath, backup_filepath)
 
 
@@ -66,16 +66,14 @@ def _platform_deployment_filename():
   if sys.version_info.major == 3:
     base_filename += '-3'
 
-  return base_filename + '.zip'
+  return f'{base_filename}.zip'
 
 
 def _deployment_file_url(filename):
   """Helper to return deployment file url."""
   deployment_bucket = local_config.ProjectConfig().get('deployment.bucket')
-  if not deployment_bucket:
-    return None
-
-  return 'gs://{bucket}/{name}'.format(bucket=deployment_bucket, name=filename)
+  return ('gs://{bucket}/{name}'.format(
+      bucket=deployment_bucket, name=filename) if deployment_bucket else None)
 
 
 def get_source_url():
@@ -155,8 +153,8 @@ def get_newer_source_revision():
     logs.log('No manifest found. Forcing an update.')
     return source_version
 
-  logs.log('Local source code version: %s.' % local_source_version)
-  logs.log('Remote source code version: %s.' % source_version)
+  logs.log(f'Local source code version: {local_source_version}.')
+  logs.log(f'Remote source code version: {source_version}.')
   if local_source_version >= source_version:
     logs.log('Remote souce code <= local source code. No update.')
     # No source code update found. Source code is current, bail out.
@@ -214,8 +212,8 @@ def update_source_code():
 
   src_directory = os.path.join(root_directory, 'src')
   output_directory = os.path.dirname(root_directory)
-  error_occurred = False
   normalized_file_set = set()
+  error_occurred = False
   for filepath in file_list:
     filename = os.path.basename(filepath)
 
@@ -247,8 +245,9 @@ def update_source_code():
           os.path.exists(absolute_filepath)):
         _rename_dll_for_update(absolute_filepath)
     except Exception:
-      logs.log_error('Failed to remove or move %s before extracting new '
-                     'version.' % absolute_filepath)
+      logs.log_error(
+          f'Failed to remove or move {absolute_filepath} before extracting new version.'
+      )
 
     try:
       extracted_path = zip_archive.extract(filepath, output_directory)
@@ -258,8 +257,7 @@ def update_source_code():
       os.chmod(extracted_path, mode)
     except:
       error_occurred = True
-      logs.log_error(
-          'Failed to extract file %s from source archive.' % filepath)
+      logs.log_error(f'Failed to extract file {filepath} from source archive.')
 
   zip_archive.close()
 
@@ -273,7 +271,7 @@ def update_source_code():
                                      utils.LOCAL_SOURCE_MANIFEST)
   source_version = utils.read_data_from_file(
       local_manifest_path, eval_data=False).decode('utf-8').strip()
-  logs.log('Source code updated to %s.' % source_version)
+  logs.log(f'Source code updated to {source_version}.')
 
 
 def update_tests_if_needed():

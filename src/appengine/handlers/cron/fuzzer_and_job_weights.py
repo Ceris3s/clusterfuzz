@@ -335,7 +335,7 @@ def update_target_weights_for_engine(client, engine, specifications):
 
     update_weight_for_target(fuzzer, job, match)
 
-  logs.log('Weight adjustments complete for engine %s.' % engine)
+  logs.log(f'Weight adjustments complete for engine {engine}.')
 
 
 def store_current_weights_in_bigquery():
