@@ -63,20 +63,16 @@ ProjectMap = collections.namedtuple('ProjectMap', 'jobs platforms')
 def _get_predator_result_item(testcase, key, default=None):
   """Return the suspected components for a test case."""
   predator_result = testcase.get_metadata('predator_result')
-  if not predator_result:
-    return default
-
-  return predator_result['result'].get(key, default)
+  return (predator_result['result'].get(key, default)
+          if predator_result else default)
 
 
 def _append_generic_incorrect_comment(comment, policy, issue, suffix):
   """Get the generic incorrect comment."""
   wrong_label = policy.label('wrong')
-  if not wrong_label:
-    return comment
-
-  return comment + GENERIC_INCORRECT_COMMENT.format(
+  return (comment + GENERIC_INCORRECT_COMMENT.format(
       label_text=issue.issue_tracker.label_text(wrong_label)) + suffix
+          if wrong_label else comment)
 
 
 def job_platform_to_real_platform(job_platform):
@@ -85,7 +81,7 @@ def job_platform_to_real_platform(job_platform):
     if platform in job_platform:
       return platform
 
-  raise ValueError('Unknown platform: ' + job_platform)
+  raise ValueError(f'Unknown platform: {job_platform}')
 
 
 def cleanup_reports_metadata():
@@ -179,7 +175,7 @@ def cleanup_unused_fuzz_targets_and_jobs():
 
   to_delete = [t.key for t in unused_target_jobs]
 
-  valid_fuzz_targets = set(t.fuzz_target_name for t in valid_target_jobs)
+  valid_fuzz_targets = {t.fuzz_target_name for t in valid_target_jobs}
   for fuzz_target in ndb_utils.get_all_from_model(data_types.FuzzTarget):
     if fuzz_target.fully_qualified_name() not in valid_fuzz_targets:
       to_delete.append(fuzz_target.key)
@@ -260,12 +256,10 @@ def get_platforms_from_testcase_variants(testcase):
   """Get platforms from crash stats based on crash parameters."""
   variant_query = data_types.TestcaseVariant.query(
       data_types.TestcaseVariant.testcase_id == testcase.key.id())
-  platforms = {
+  return {
       variant.platform
-      for variant in variant_query
-      if variant.is_similar and variant.platform
+      for variant in variant_query if variant.is_similar and variant.platform
   }
-  return platforms
 
 
 def get_crash_occurrence_platforms(testcase, lookbehind_days=1):
@@ -290,16 +284,17 @@ def get_top_crashes_for_all_projects_and_platforms():
     top_crashes_by_project_and_platform_map[project_name] = {}
 
     for platform in project_map.platforms:
-      where_clause = (
-          'crash_type NOT IN UNNEST(%s) AND '
-          'crash_state NOT IN UNNEST(%s) AND '
-          'job_type IN UNNEST(%s) AND '
-          'platform LIKE %s AND '
-          'project = %s' % (json.dumps(TOP_CRASHES_IGNORE_CRASH_TYPES),
-                            json.dumps(TOP_CRASHES_IGNORE_CRASH_STATES),
-                            json.dumps(list(project_map.jobs)),
-                            json.dumps(platform.lower() + '%'),
-                            json.dumps(project_name)))
+      where_clause = ('crash_type NOT IN UNNEST(%s) AND '
+                      'crash_state NOT IN UNNEST(%s) AND '
+                      'job_type IN UNNEST(%s) AND '
+                      'platform LIKE %s AND '
+                      'project = %s' % (
+                          json.dumps(TOP_CRASHES_IGNORE_CRASH_TYPES),
+                          json.dumps(TOP_CRASHES_IGNORE_CRASH_STATES),
+                          json.dumps(list(project_map.jobs)),
+                          json.dumps(f'{platform.lower()}%'),
+                          json.dumps(project_name),
+                      ))
 
       _, rows = crash_stats.get(
           end=last_hour,
@@ -439,12 +434,11 @@ def mark_issue_as_closed_if_testcase_is_fixed(policy, testcase, issue):
   if testcase.one_time_crasher_flag and testcase.fixed != 'Yes':
     return
 
-  # Make sure that no other testcases associated with this issue are open.
-  similar_testcase = data_types.Testcase.query(
+  if similar_testcase := data_types.Testcase.query(
       data_types.Testcase.bug_information == testcase.bug_information,
       ndb_utils.is_true(data_types.Testcase.open),
-      ndb_utils.is_false(data_types.Testcase.one_time_crasher_flag)).get()
-  if similar_testcase:
+      ndb_utils.is_false(data_types.Testcase.one_time_crasher_flag),
+  ).get():
     return
 
   # As a last check, do the expensive call of actually checking all issue
@@ -457,9 +451,8 @@ def mark_issue_as_closed_if_testcase_is_fixed(policy, testcase, issue):
   issue.labels.add(verified_label)
   comment = 'ClusterFuzz testcase %d is verified as fixed' % testcase.key.id()
 
-  fixed_range_url = data_handler.get_fixed_range_url(testcase)
-  if fixed_range_url:
-    comment += ' in ' + fixed_range_url
+  if fixed_range_url := data_handler.get_fixed_range_url(testcase):
+    comment += f' in {fixed_range_url}'
   else:
     comment += '.'
 
@@ -535,19 +528,15 @@ def mark_unreproducible_testcase_and_issue_as_closed_after_deadline(
   if not issue or not issue.is_open:
     return
 
-  # Skip closing if flag is set.
-  skip_auto_close = data_handler.get_value_from_job_definition(
-      testcase.job_type, 'SKIP_AUTO_CLOSE_ISSUE')
-  if skip_auto_close:
+  if skip_auto_close := data_handler.get_value_from_job_definition(
+      testcase.job_type, 'SKIP_AUTO_CLOSE_ISSUE'):
     return
 
-  # Check if there are any reproducible open testcases are associated with
-  # this bug. If yes, return.
-  similar_testcase = data_types.Testcase.query(
+  if similar_testcase := data_types.Testcase.query(
       data_types.Testcase.bug_information == testcase.bug_information,
       ndb_utils.is_true(data_types.Testcase.open),
-      ndb_utils.is_false(data_types.Testcase.one_time_crasher_flag)).get()
-  if similar_testcase:
+      ndb_utils.is_false(data_types.Testcase.one_time_crasher_flag),
+  ).get():
     return
 
   # Make sure that testcase is atleast older than
@@ -605,12 +594,11 @@ def mark_na_testcase_issues_as_wontfix(policy, testcase, issue):
   if not issue or not issue.is_open:
     return
 
-  # Make sure that no other testcases associated with this issue are open.
-  similar_testcase = data_types.Testcase.query(
+  if similar_testcase := data_types.Testcase.query(
       data_types.Testcase.bug_information == testcase.bug_information,
       ndb_utils.is_true(data_types.Testcase.open),
-      ndb_utils.is_false(data_types.Testcase.one_time_crasher_flag)).get()
-  if similar_testcase:
+      ndb_utils.is_false(data_types.Testcase.one_time_crasher_flag),
+  ).get():
     return
 
   # Make that there is no crash seen in the deadline period.
@@ -623,9 +611,8 @@ def mark_na_testcase_issues_as_wontfix(policy, testcase, issue):
   if issue_tracker_utils.was_label_added(issue, policy.label('wrong')):
     return
 
-  skip_auto_close = data_handler.get_value_from_job_definition(
-      testcase.job_type, 'SKIP_AUTO_CLOSE_ISSUE')
-  if skip_auto_close:
+  if skip_auto_close := data_handler.get_value_from_job_definition(
+      testcase.job_type, 'SKIP_AUTO_CLOSE_ISSUE'):
     return
 
   comment = (f'ClusterFuzz testcase {testcase.key.id()} is closed as invalid, '
@@ -749,8 +736,7 @@ def notify_closed_issue_if_testcase_is_open(policy, testcase, issue):
         'fix was incorrect or incomplete, please re-open the bug.'
     ).format(id=testcase.key.id())
 
-    wrong_label = policy.label('wrong')
-    if wrong_label:
+    if wrong_label := policy.label('wrong'):
       issue_comment += (
           (' Otherwise, ignore this notification and add the '
            '{label_text}.'
@@ -763,8 +749,7 @@ def notify_closed_issue_if_testcase_is_open(policy, testcase, issue):
         'unworkable, ignore this notification and we will file another '
         'bug soon with hopefully a better and workable testcase.\n\n'.format(
             id=testcase.key.id()))
-    ignore_label = policy.label('ignore')
-    if ignore_label:
+    if ignore_label := policy.label('ignore'):
       issue_comment += (
           'Otherwise, if this is not intended to be fixed (e.g. this is an '
           'intentional crash), please add the {label_text} to '
@@ -824,8 +809,7 @@ def _get_severity_from_labels(security_severity_label, labels):
   """Get the severity from the label list."""
   pattern = issue_filer.get_label_pattern(security_severity_label)
   for label in labels:
-    match = pattern.match(label)
-    if match:
+    if match := pattern.match(label):
       return severity_analyzer.string_to_severity(match.group(1))
 
   return data_types.SecuritySeverity.MISSING
@@ -975,12 +959,11 @@ def update_fuzz_blocker_label(policy, testcase, issue,
     # Issue was already marked a top crasher, bail out.
     return
 
-  if len(top_crash_platforms) == 1:
-    platform_message = '%s platform' % top_crash_platforms[0]
-  else:
-    platform_message = '%s and %s platforms' % (', '.join(
-        top_crash_platforms[:-1]), top_crash_platforms[-1])
-
+  platform_message = (
+      f'{top_crash_platforms[0]} platform'
+      if len(top_crash_platforms) == 1 else
+      f"{', '.join(top_crash_platforms[:-1])} and {top_crash_platforms[-1]} platforms"
+  )
   fuzzer_name = (
       testcase.get_metadata('fuzzer_binary_name') or testcase.fuzzer_name)
   update_message = (
@@ -1106,7 +1089,7 @@ def update_issue_ccs_from_owners_file(policy, testcase, issue):
   issue_comment = (
       'Automatically adding ccs based on OWNERS file / target commit history.')
   if utils.is_oss_fuzz():
-    issue_comment += OSS_FUZZ_INCORRECT_COMMENT + '.'
+    issue_comment += f'{OSS_FUZZ_INCORRECT_COMMENT}.'
   else:
     issue_comment = _append_generic_incorrect_comment(issue_comment, policy,
                                                       issue, '.')
@@ -1125,13 +1108,11 @@ def update_issue_labels_for_flaky_testcase(policy, testcase, issue):
   if not testcase.one_time_crasher_flag:
     return
 
-  # Make sure that no other reproducible testcases associated with this issue
-  # are open. If yes, no need to update label.
-  similar_reproducible_testcase = data_types.Testcase.query(
+  if similar_reproducible_testcase := data_types.Testcase.query(
       data_types.Testcase.bug_information == testcase.bug_information,
       ndb_utils.is_true(data_types.Testcase.open),
-      ndb_utils.is_false(data_types.Testcase.one_time_crasher_flag)).get()
-  if similar_reproducible_testcase:
+      ndb_utils.is_false(data_types.Testcase.one_time_crasher_flag),
+  ).get():
     return
 
   reproducible_label = policy.label('reproducible')
@@ -1232,14 +1213,8 @@ def update_issue_owner_and_ccs_from_predator_results(policy,
       if author in issue.ccs:
         continue
 
-      # If an author has previously been manually removed from the cc list,
-      # we assume they were incorrectly added. Don't try to add them again.
-      author_was_removed = False
-      for action in issue.actions:
-        if author in action.ccs.removed:
-          author_was_removed = True
-          break
-
+      author_was_removed = any(
+          author in action.ccs.removed for action in issue.actions)
       if author_was_removed:
         continue
 

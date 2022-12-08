@@ -69,8 +69,10 @@ def save_regression_range(testcase_id, regression_range_start,
   testcase = data_handler.get_testcase_by_id(testcase_id)
   testcase.regression = '%d:%d' % (regression_range_start, regression_range_end)
   data_handler.update_testcase_comment(
-      testcase, data_types.TaskState.FINISHED,
-      'regressed in range %s' % testcase.regression)
+      testcase,
+      data_types.TaskState.FINISHED,
+      f'regressed in range {testcase.regression}',
+  )
 
   write_to_big_query(testcase, regression_range_start, regression_range_end)
 
@@ -213,7 +215,7 @@ def find_regression_range(testcase_id, job_type):
 
   if testcase.regression:
     logs.log_error(
-        'Regression range is already set as %s, skip.' % testcase.regression)
+        f'Regression range is already set as {testcase.regression}, skip.')
     return
 
   # This task is not applicable for custom binaries.

@@ -40,8 +40,7 @@ def _handle_response(build, response):
   _update_env_from_response(response)
 
   if not environment.get_value('APP_PATH'):
-    fuzzer_directory = environment.get_value('FUZZER_DIR')
-    if fuzzer_directory:
+    if fuzzer_directory := environment.get_value('FUZZER_DIR'):
       build_manager.set_environment_vars([fuzzer_directory])
 
   environment.set_value('APP_REVISION', build.revision)

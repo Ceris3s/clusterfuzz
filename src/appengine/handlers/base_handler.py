@@ -69,9 +69,8 @@ class JsonEncoder(json.JSONEncoder):
       return str(o)
     if isinstance(o, bytes):
       return o.decode('utf-8')
-    if isinstance(o, jira.resources.Resource):
-      if o.raw:
-        return o.raw
+    if isinstance(o, jira.resources.Resource) and o.raw:
+      return o.raw
 
     return json.JSONEncoder.default(self, o)
 
@@ -191,9 +190,8 @@ class Handler(MethodView):
     values['is_logged_in'] = bool(helpers.get_user_email())
 
     # Only track analytics for non-admin users.
-    values['ga_tracking_id'] = (
-        local_config.GAEConfig().get('ga_tracking_id')
-        if not auth.is_current_user_admin() else None)
+    values['ga_tracking_id'] = (None if auth.is_current_user_admin() else
+                                local_config.GAEConfig().get('ga_tracking_id'))
 
     if values['is_logged_in']:
       values['switch_account_url'] = make_login_url(request.url)

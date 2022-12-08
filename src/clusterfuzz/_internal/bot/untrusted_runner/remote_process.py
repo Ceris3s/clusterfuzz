@@ -44,11 +44,7 @@ def run_and_wait(request, _):
   protobuf_utils.get_protobuf_field(args, request.popen_args, 'shell')
   protobuf_utils.get_protobuf_field(args, request.popen_args, 'cwd')
 
-  if request.popen_args.env_is_set:
-    args['env'] = request.popen_args.env
-  else:
-    args['env'] = None
-
+  args['env'] = request.popen_args.env if request.popen_args.env_is_set else None
   args['additional_args'] = request.additional_args
   protobuf_utils.get_protobuf_field(args, request, 'timeout')
   protobuf_utils.get_protobuf_field(args, request, 'terminate_before_kill')
@@ -56,7 +52,7 @@ def run_and_wait(request, _):
   protobuf_utils.get_protobuf_field(args, request, 'input_data')
   protobuf_utils.get_protobuf_field(args, request, 'max_stdout_len')
 
-  logs.log('Running command: %s' % process_runner.get_command())
+  logs.log(f'Running command: {process_runner.get_command()}')
 
   return untrusted_runner_pb2.RunAndWaitResponse(
       result=process_result_to_proto(process_runner.run_and_wait(**args)))
@@ -80,7 +76,5 @@ def run_process(request, _):
   protobuf_utils.get_protobuf_field(args, request, 'ignore_children')
 
   return_code, execution_time, output = process_handler.run_process(**args)
-  response = untrusted_runner_pb2.RunProcessResponse(
+  return untrusted_runner_pb2.RunProcessResponse(
       return_code=return_code, execution_time=execution_time, output=output)
-
-  return response

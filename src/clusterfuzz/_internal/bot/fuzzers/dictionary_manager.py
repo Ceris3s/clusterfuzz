@@ -13,6 +13,7 @@
 # limitations under the License.
 """Functions for dictionary analysis and management."""
 
+
 import os
 import re
 
@@ -27,7 +28,7 @@ DICTIONARY_FILE_EXTENSION = '.dict'
 
 # Name of the file in GCS containing recommended dictionary.
 RECOMMENDED_DICTIONARY_FILENAME = (
-    'recommended_dictionary%s' % DICTIONARY_FILE_EXTENSION)
+    f'recommended_dictionary{DICTIONARY_FILE_EXTENSION}')
 
 # A comment string to separate recommended dictionary elements from manual ones.
 RECOMMENDED_DICTIONARY_HEADER = '# Recommended dictionary stored in GCS.'
@@ -54,8 +55,7 @@ def extract_dictionary_element(line):
   if start_index == -1 or end_index == -1 or start_index == end_index:
     return None
 
-  element = line[start_index:end_index + 1]
-  return element
+  return line[start_index:end_index + 1]
 
 
 def get_default_dictionary_path(fuzz_target_path):
@@ -66,12 +66,9 @@ def get_default_dictionary_path(fuzz_target_path):
 
 def get_dictionary_size(dictionary_content):
   """Calculate number of dictionary elements in the given string."""
-  count = 0
-  for line in dictionary_content.splitlines():
-    if extract_dictionary_element(line):
-      count += 1
-
-  return count
+  return sum(
+      bool(extract_dictionary_element(line))
+      for line in dictionary_content.splitlines())
 
 
 def get_recommended_dictionary_gcs_path(fuzzer_name):
@@ -82,11 +79,7 @@ def get_recommended_dictionary_gcs_path(fuzzer_name):
   """
   bucket_name = environment.get_value('FUZZ_LOGS_BUCKET')
   bucket_subdirectory_name = 'dictionaries'
-  recommended_dictionary_gcs_path = '/%s/%s/%s/%s' % (
-      bucket_name, bucket_subdirectory_name, fuzzer_name,
-      RECOMMENDED_DICTIONARY_FILENAME)
-
-  return recommended_dictionary_gcs_path
+  return f'/{bucket_name}/{bucket_subdirectory_name}/{fuzzer_name}/{RECOMMENDED_DICTIONARY_FILENAME}'
 
 
 def get_stats_for_dictionary_file(dictionary_path):
@@ -122,11 +115,11 @@ def merge_dictionary_files(original_dictionary_path,
       recommended_dictionary_path,
       eval_data=False).decode('utf-8').splitlines()
 
-  dictionary_lines_to_add = set()
-  for line in recommended_dictionary_lines:
-    if line not in merged_dictionary_data:
-      dictionary_lines_to_add.add(line)
-
+  dictionary_lines_to_add = {
+      line
+      for line in recommended_dictionary_lines
+      if line not in merged_dictionary_data
+  }
   merged_dictionary_data += '\n%s\n' % RECOMMENDED_DICTIONARY_HEADER
 
   merged_dictionary_data += '\n'.join(dictionary_lines_to_add)
@@ -184,10 +177,9 @@ def correct_if_needed(dict_path):
 
   content = utils.read_data_from_file(
       dict_path, eval_data=False).decode('utf-8')
-  new_content = ''
-  for current_line in content.splitlines():
-    new_content += _fix_dictionary_line(current_line, dict_path) + '\n'
-
+  new_content = ''.join(
+      _fix_dictionary_line(current_line, dict_path) + '\n'
+      for current_line in content.splitlines())
   # End of file newlines are inconsistent in dictionaries.
   if new_content.rstrip('\n') != content.rstrip('\n'):
     utils.write_data_to_file(new_content, dict_path)
@@ -244,7 +236,7 @@ class DictionaryManager(object):
     if storage.copy_file_from(self.gcs_path, local_dict_path):
       return True
 
-    logs.log('Downloading %s failed.' % self.gcs_path)
+    logs.log(f'Downloading {self.gcs_path} failed.')
     return False
 
   def parse_recommended_dictionary_from_data(self, data):
@@ -283,8 +275,7 @@ class DictionaryManager(object):
         # Beginning of the section reached, bail out.
         break
 
-      element = extract_dictionary_element(log_lines[index])
-      if element:
+      if element := extract_dictionary_element(log_lines[index]):
         recommended_entries.append(element)
 
     return recommended_entries
@@ -326,8 +317,7 @@ class DictionaryManager(object):
         break
 
       line = log_lines[index].split(TOKEN_ANALYZE_DICT_METADATA)[0]
-      element = extract_dictionary_element(line)
-      if element:
+      if element := extract_dictionary_element(line):
         useless_entries.append(element)
 
     return useless_entries

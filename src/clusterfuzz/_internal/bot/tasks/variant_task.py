@@ -89,8 +89,10 @@ def execute_task(testcase_id, job_type):
   if not build_manager.check_app_path():
     testcase = data_handler.get_testcase_by_id(testcase_id)
     data_handler.update_testcase_comment(
-        testcase, data_types.TaskState.ERROR,
-        'Build setup failed with job: ' + job_type)
+        testcase,
+        data_types.TaskState.ERROR,
+        f'Build setup failed with job: {job_type}',
+    )
     return
 
   # Disable gestures if we're running on a different platform from that of

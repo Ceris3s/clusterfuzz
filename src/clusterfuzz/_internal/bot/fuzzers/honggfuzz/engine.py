@@ -65,8 +65,7 @@ def _get_runner():
 
 def _find_sanitizer_stacktrace(reproducers_dir):
   """Find the sanitizer stacktrace from the reproducers dir."""
-  for stacktrace_path in glob.glob(
-      os.path.join(reproducers_dir, _HF_SANITIZER_LOG_PREFIX + '*')):
+  for stacktrace_path in glob.glob(os.path.join(reproducers_dir, f'{_HF_SANITIZER_LOG_PREFIX}*')):
     with open(stacktrace_path, 'rb') as f:
       return utils.decode_to_unicode(f.read())
 
@@ -76,10 +75,7 @@ def _find_sanitizer_stacktrace(reproducers_dir):
 def _get_reproducer_path(line):
   """Get the reproducer path, if any."""
   crash_match = _CRASH_REGEX.match(line)
-  if not crash_match:
-    return None
-
-  return crash_match.group(1)
+  return crash_match.group(1) if crash_match else None
 
 
 def _get_stats(line):
@@ -165,8 +161,7 @@ class Engine(engine.Engine):
     crashes = []
     stats = None
     for line in log_lines:
-      reproducer_path = _get_reproducer_path(line)
-      if reproducer_path:
+      if reproducer_path := _get_reproducer_path(line):
         crashes.append(
             engine.Crash(reproducer_path, sanitizer_stacktrace or '', [],
                          int(fuzz_result.time_executed)))

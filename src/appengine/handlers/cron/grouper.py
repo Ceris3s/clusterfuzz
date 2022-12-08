@@ -164,22 +164,14 @@ def _group_testcases_with_similar_states(testcase_map):
 
 def _has_testcase_with_same_params(testcase, testcase_map):
   """Return a bool whether there is another testcase with same params."""
-  for other_testcase_id in testcase_map:
-    # yapf: disable
-    if (testcase.project_name ==
-        testcase_map[other_testcase_id].project_name and
-        testcase.crash_state ==
-        testcase_map[other_testcase_id].crash_state and
-        testcase.crash_type ==
-        testcase_map[other_testcase_id].crash_type and
-        testcase.security_flag ==
-        testcase_map[other_testcase_id].security_flag and
-        testcase.one_time_crasher_flag ==
-        testcase_map[other_testcase_id].one_time_crasher_flag):
-      return True
-    # yapf: enable
-
-  return False
+  return any(
+      (testcase.project_name == testcase_map[other_testcase_id].project_name
+       and testcase.crash_state == testcase_map[other_testcase_id].crash_state
+       and testcase.crash_type == testcase_map[other_testcase_id].crash_type
+       and testcase.security_flag == testcase_map[other_testcase_id].
+       security_flag and testcase.one_time_crasher_flag ==
+       testcase_map[other_testcase_id].one_time_crasher_flag)
+      for other_testcase_id in testcase_map)
 
 
 def _shrink_large_groups_if_needed(testcase_map):

@@ -42,18 +42,14 @@ def _convert_platform_to_omahaproxy_platform(platform):
   """Converts platform to omahaproxy platform for use in
   get_production_builds_info."""
   platform_lower = platform.lower()
-  if platform_lower == 'windows':
-    return 'win'
-  return platform_lower
+  return 'win' if platform_lower == 'windows' else platform_lower
 
 
 def _convert_platform_to_chromiumdash_platform(platform):
   """Converts platform to Chromium Dash platform.
   Note that Windows in Chromium Dash is win64 and we only want win32."""
   platform_lower = platform.lower()
-  if platform_lower == 'windows':
-    return 'Win32'
-  return platform_lower.capitalize()
+  return 'Win32' if platform_lower == 'windows' else platform_lower.capitalize()
 
 
 def _fetch_releases_from_chromiumdash(platform, channel=None):
@@ -62,20 +58,20 @@ def _fetch_releases_from_chromiumdash(platform, channel=None):
   chromiumdash_platform = _convert_platform_to_chromiumdash_platform(platform)
   query_url = BUILD_INFO_URL_CD.format(platform=chromiumdash_platform)
   if channel:
-    query_url = query_url + '&channel=' + channel
+    query_url = f'{query_url}&channel={channel}'
 
   build_info = utils.fetch_url(query_url)
   if not build_info:
-    logs.log_error('Failed to fetch build info from %s' % query_url)
+    logs.log_error(f'Failed to fetch build info from {query_url}')
     return []
 
   try:
     build_info_json = json.loads(build_info)
     if not build_info_json:
-      logs.log_error('Empty response from %s' % query_url)
+      logs.log_error(f'Empty response from {query_url}')
       return []
   except Exception:
-    logs.log_error('Malformed response from %s' % query_url)
+    logs.log_error(f'Malformed response from {query_url}')
     return []
 
   return build_info_json
@@ -93,7 +89,7 @@ def get_production_builds_info(platform):
 
   build_info = utils.fetch_url(BUILD_INFO_URL)
   if not build_info:
-    logs.log_error('Failed to fetch build info from %s' % BUILD_INFO_URL)
+    logs.log_error(f'Failed to fetch build info from {BUILD_INFO_URL}')
     return []
 
   for line in build_info.splitlines():
@@ -101,13 +97,13 @@ def get_production_builds_info(platform):
     if not match:
       continue
 
-    platform_type = match.group(1)
+    platform_type = match[1]
     if platform_type != omahaproxy_platform:
       continue
 
-    build_type = match.group(2)
-    version = match.group(3)
-    revision = match.group(4)
+    build_type = match[2]
+    version = match[3]
+    revision = match[4]
     builds_metadata.append(BuildInfo(platform, build_type, version, revision))
 
   return builds_metadata
@@ -145,11 +141,7 @@ def get_production_builds_info_from_cd(platform):
 
 def get_release_milestone(build_type, platform):
   """Return milestone for a particular release."""
-  if build_type == 'head':
-    actual_build_type = 'canary'
-  else:
-    actual_build_type = build_type
-
+  actual_build_type = 'canary' if build_type == 'head' else build_type
   builds_metadata = get_production_builds_info_from_cd(platform)
   for build_metadata in builds_metadata:
     if build_metadata.build_type == actual_build_type:

@@ -34,12 +34,12 @@ class Query(base.Query):
     """Filter by a single value."""
     # json.dumps converts Python literals to BigQuery literals perfectly well.
     # See tests.
-    self.conditions.append('%s %s %s' % (field, operator, json.dumps(value)))
+    self.conditions.append(f'{field} {operator} {json.dumps(value)}')
 
   def filter_in(self, field, values):
     """Filter by multiple values."""
     literals = [json.dumps(v) for v in values]
-    self.conditions.append('%s IN (%s)' % (field, ', '.join(literals)))
+    self.conditions.append(f"{field} IN ({', '.join(literals)})")
 
   def union(self, *queries):
     """Combine queries with OR conditions."""
@@ -54,11 +54,8 @@ class Query(base.Query):
     subquery_wheres = []
     for or_queries in self.or_groups:
       or_cond = ' OR '.join([sub.get_where_clause() for sub in or_queries])
-      subquery_wheres.append('(%s)' % or_cond)
+      subquery_wheres.append(f'({or_cond})')
 
     all_conds = self.conditions + subquery_wheres
 
-    if not all_conds:
-      return ''
-
-    return '(%s)' % ' AND '.join(all_conds)
+    return f"({' AND '.join(all_conds)})" if all_conds else ''

@@ -43,8 +43,7 @@ class GcsError(Exception):
 def sign_data(data):
   """Sign data with the default App Engine service account."""
   iam = googleapiclient.discovery.build('iamcredentials', 'v1')
-  service_account = 'projects/-/serviceAccounts/' + utils.service_account_email(
-  )
+  service_account = f'projects/-/serviceAccounts/{utils.service_account_email()}'
 
   response = iam.projects().serviceAccounts().signBlob(
       name=service_account,
@@ -56,7 +55,7 @@ def sign_data(data):
   try:
     return base64.b64decode(response['signedBlob'])
   except Exception as e:
-    raise GcsError('Invalid response: ' + str(e))
+    raise GcsError(f'Invalid response: {str(e)}')
 
 
 class SignedGcsHandler(object):
@@ -71,7 +70,7 @@ class SignedGcsHandler(object):
           'response-content-disposition': content_disposition,
       }
 
-      url += '&' + urllib.parse.urlencode(content_disposition_params)
+      url += f'&{urllib.parse.urlencode(content_disposition_params)}'
 
     return self.redirect(url)
 
@@ -89,9 +88,8 @@ def get_signed_url(bucket_name,
   timestamp = _get_expiration_time(expiry)
   blob = '%s\n\n\n%d\n/%s/%s' % (method, timestamp, bucket_name, path)
 
-  local_server = environment.get_value('LOCAL_GCS_SERVER_HOST')
-  if local_server:
-    url = local_server + '/' + bucket_name
+  if local_server := environment.get_value('LOCAL_GCS_SERVER_HOST'):
+    url = f'{local_server}/{bucket_name}'
     signed_blob = b'SIGNATURE'
     service_account_name = 'service_account'
   else:
@@ -105,7 +103,7 @@ def get_signed_url(bucket_name,
       'Signature': base64.b64encode(signed_blob).decode('utf-8'),
   }
 
-  return str(url + '/' + path + '?' + urllib.parse.urlencode(params))
+  return str(f'{url}/{path}?{urllib.parse.urlencode(params)}')
 
 
 def prepare_upload(bucket_name, path, expiry=DEFAULT_URL_VALID_SECONDS):
@@ -126,12 +124,11 @@ def prepare_upload(bucket_name, path, expiry=DEFAULT_URL_VALID_SECONDS):
 
   policy = base64.b64encode(
       json.dumps({
-          'expiration': expiration_time.isoformat() + 'Z',
+          'expiration': f'{expiration_time.isoformat()}Z',
           'conditions': conditions,
       }).encode('utf-8'))
 
-  local_server = environment.get_value('LOCAL_GCS_SERVER_HOST')
-  if local_server:
+  if local_server := environment.get_value('LOCAL_GCS_SERVER_HOST'):
     url = local_server
     signature = b'SIGNATURE'
     service_account_name = 'service_account'

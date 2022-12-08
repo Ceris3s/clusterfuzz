@@ -61,7 +61,7 @@ def main():
   file_extension = os.path.splitext(file_path)[1]
   output_file_path = args['output_file']
   if not output_file_path:
-    output_file_path = '%s.min' % file_path
+    output_file_path = f'{file_path}.min'
 
   utils.set_test_command(command)
 
@@ -69,18 +69,18 @@ def main():
     with open(file_path, 'rb') as file_handle:
       data = file_handle.read()
   except IOError:
-    print('Unable to open input file %s.' % file_path)
+    print(f'Unable to open input file {file_path}.')
     sys.exit(1)
 
   # Do not print an additional newline after minimization.
   minimized_output = selected_minimizer.run(
       data, thread_count=thread_count, file_extension=file_extension)
-  print('Writing minimized output to %s.' % output_file_path)
+  print(f'Writing minimized output to {output_file_path}.')
   try:
     with open(output_file_path, 'wb') as file_handle:
       file_handle.write(minimized_output)
   except IOError:
-    print('Unable to write output file %s.' % output_file_path)
+    print(f'Unable to write output file {output_file_path}.')
     sys.exit(1)
 
 

@@ -38,13 +38,13 @@ def format_address_to_dec(address, base=16):
   try_bases = [base, 16] if base != 16 else [base]
   for base_try in try_bases:
     try:
-      address = int(address, base_try)
-      return address
+      return int(address, base_try)
     except Exception:
       continue
 
-  logs.log_warn('Error formatting address %s to decimal int64 in bases %s.' %
-                (str(address), str(try_bases)))
+  logs.log_warn(
+      f'Error formatting address {address} to decimal int64 in bases {try_bases}.'
+  )
   return None
 
 
@@ -214,11 +214,11 @@ class StackFrame(StackFrameStructure):
     super(StackFrame, self).__setattr__(field_name, field_value)
 
   def __str__(self):
-    s = []
-    for name, member in inspect.getmembers(StackFrame):
-      if not isinstance(member, property):
-        continue
-      s += ['%s: %s' % (name, str(getattr(self, name)))]
+    s = [
+        f'{name}: {str(getattr(self, name))}'
+        for name, member in inspect.getmembers(StackFrame)
+        if isinstance(member, property)
+    ]
     return ', '.join(s)
 
 

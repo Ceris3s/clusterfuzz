@@ -139,7 +139,7 @@ class Engine(engine.Engine):
       corpus_subset_dir = self._create_temp_corpus_dir('subset')
       libfuzzer.copy_from_corpus(corpus_subset_dir, corpus_dir, subset_size)
       strategy_info.fuzzing_strategies.append(
-          strategy.CORPUS_SUBSET_STRATEGY.name + '_' + str(subset_size))
+          f'{strategy.CORPUS_SUBSET_STRATEGY.name}_{str(subset_size)}')
       strategy_info.additional_corpus_dirs.append(corpus_subset_dir)
     else:
       strategy_info.additional_corpus_dirs.append(corpus_dir)
@@ -148,7 +148,7 @@ class Engine(engine.Engine):
     dict_path = fuzzer_utils.extract_argument(
         arguments, constants.DICT_FLAG, remove=False)
     if dict_path and not os.path.exists(dict_path):
-      logs.log_error('Invalid dict %s for %s.' % (dict_path, target_path))
+      logs.log_error(f'Invalid dict {dict_path} for {target_path}.')
       fuzzer_utils.extract_argument(arguments, constants.DICT_FLAG)
 
     # If there's no dict argument, check for %target_binary_name%.dict file.
@@ -272,8 +272,7 @@ class Engine(engine.Engine):
 
     project_qualified_fuzzer_name = (
         engine_common.get_project_qualified_fuzzer_name(target_path))
-    dict_error_match = DICT_PARSING_FAILED_REGEX.search(fuzz_result.output)
-    if dict_error_match:
+    if dict_error_match := DICT_PARSING_FAILED_REGEX.search(fuzz_result.output):
       logs.log_error(
           'Dictionary parsing failed (target={target}, line={line}).'.format(
               target=project_qualified_fuzzer_name,
@@ -425,17 +424,14 @@ class Engine(engine.Engine):
     merge_control_file_dir = self._create_temp_corpus_dir('mcf_tmp_dir')
     self._merge_control_file = os.path.join(merge_control_file_dir, 'MCF')
 
-    # Two step merge process to obtain accurate stats for the new corpus units.
-    # See https://reviews.llvm.org/D66107 for a more detailed description.
-    merge_stats = {}
-
     # Step 1. Use only existing corpus and collect "initial" stats.
     result_1 = self.minimize_corpus(target_path, arguments,
                                     existing_corpus_dirs, output_corpus_dir,
                                     reproducers_dir, max_time)
-    merge_stats['initial_edge_coverage'] = result_1.stats['edge_coverage']
-    merge_stats['initial_feature_coverage'] = result_1.stats['feature_coverage']
-
+    merge_stats = {
+        'initial_edge_coverage': result_1.stats['edge_coverage'],
+        'initial_feature_coverage': result_1.stats['feature_coverage'],
+    }
     # Clear the output dir as it does not have any new units at this point.
     engine_common.recreate_directory(output_corpus_dir)
 
@@ -507,7 +503,7 @@ class Engine(engine.Engine):
       raise TimeoutError('Merging new testcases timed out\n' + result.output)
 
     if result.return_code != 0:
-      raise MergeError('Merging new testcases failed: ' + result.output)
+      raise MergeError(f'Merging new testcases failed: {result.output}')
 
     merge_output = result.output
     merge_stats = stats.parse_stats_from_merge_log(merge_output.splitlines())

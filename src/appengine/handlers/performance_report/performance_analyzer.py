@@ -140,11 +140,7 @@ class PerformanceAnalyzer(object):
     Returns:
       A list of scores corresponding to given analyzers.
     """
-    scores = []
-    for analyzer in self.analyzers:
-      scores.append(analyzer.checker(row) * analyzer.weight)
-
-    return scores
+    return [analyzer.checker(row) * analyzer.weight for analyzer in self.analyzers]
 
   def get_issues(self, scores, percents, examples):
     """Get list of issues and corresponding scores for given raw scores.
@@ -218,10 +214,7 @@ class LibFuzzerPerformanceAnalyzer(PerformanceAnalyzer):
   def analyzer_bad_instrumentation(self, stats):
     """Check if there is bad instrumentation flag in the given stats.
     Returns a number in range [0.0, 1.0]."""
-    if stats['bad_instrumentation']:
-      return 1.0
-
-    return 0.0
+    return 1.0 if stats['bad_instrumentation'] else 0.0
 
   def analyzer_coverage(self, stats):
     """Calculate a number of new units using the given stats data.
@@ -252,18 +245,12 @@ class LibFuzzerPerformanceAnalyzer(PerformanceAnalyzer):
   def analyzer_crash(self, stats):
     """Check if there is a crash (ASan/MSan/UBSan) in the given stats.
     Returns a number in range [0.0, 1.0]."""
-    if stats['crash_count']:
-      return 1.0
-
-    return 0.0
+    return 1.0 if stats['crash_count'] else 0.0
 
   def analyzer_leak(self, stats):
     """Check if there is a LeakSanitizer crash in the given stats.
     Returns a number in range [0.0, 1.0]."""
-    if stats['leak_count']:
-      return 1.0
-
-    return 0.0
+    return 1.0 if stats['leak_count'] else 0.0
 
   def analyzer_logging(self, stats):
     """Calculate the fraction of redundant log lines of all logs lines.
@@ -289,10 +276,7 @@ class LibFuzzerPerformanceAnalyzer(PerformanceAnalyzer):
   def analyzer_oom(self, stats):
     """Check if there is a OOM crash in the given stats.
     Returns a number in range [0.0, 1.0]."""
-    if stats['oom_count']:
-      return 1.0
-
-    return 0.0
+    return 1.0 if stats['oom_count'] else 0.0
 
   def analyzer_slow_unit(self, stats):
     """Calculates a number of slow units in the given stats.
@@ -338,15 +322,9 @@ class LibFuzzerPerformanceAnalyzer(PerformanceAnalyzer):
 
   def analyzer_startup_crash(self, stats):
     """Check if fuzzer had crashed on a startup."""
-    if stats['startup_crash_count']:
-      return 1.0
-
-    return 0.0
+    return 1.0 if stats['startup_crash_count'] else 0.0
 
   def analyzer_timeout(self, stats):
     """Check if there is a libFuzzer timeout in the stats.
     Returns a number in range [0.0, 1.0]."""
-    if stats['timeout_count']:
-      return 1.0
-
-    return 0.0
+    return 1.0 if stats['timeout_count'] else 0.0

@@ -18,16 +18,13 @@ class LabelStore(object):
   case."""
 
   def __init__(self, seq=()):
-    self._backing = {}
     self._added = {}
     self._removed = {}
 
-    for item in seq:
-      self._backing[item.lower()] = item
+    self._backing = {item.lower(): item for item in seq}
 
   def __iter__(self):
-    for value in self._backing.values():
-      yield value
+    yield from self._backing.values()
 
   def __contains__(self, item):
     return item.lower() in self._backing
@@ -271,7 +268,7 @@ class IssueTracker(object):
 
   def label_text(self, label):
     """Text for a label (with label type)."""
-    return label + ' ' + self.label_type
+    return f'{label} {self.label_type}'
 
   def new_issue(self):
     """Create an unsaved new issue."""

@@ -27,8 +27,10 @@ def remove(testcase):
   testcase.duplicate_of = None
   testcase.put()
 
-  helpers.log('Removed duplicate status for testcase %s' % testcase.key.id(),
-              helpers.MODIFY_OPERATION)
+  helpers.log(
+      f'Removed duplicate status for testcase {testcase.key.id()}',
+      helpers.MODIFY_OPERATION,
+  )
 
 
 class Handler(base_handler.Handler):

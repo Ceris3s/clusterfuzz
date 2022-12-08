@@ -81,10 +81,7 @@ class FifoInMemory(object):
 
   def get(self, key):
     """Get the value from cache."""
-    if self.cache is None:
-      return None
-
-    return self.cache.get(key)
+    return None if self.cache is None else self.cache.get(key)
 
   def get_key(self, func, args, kwargs):
     """Get a key name based on function, arguments and keyword arguments."""
@@ -153,10 +150,7 @@ class Memcache(object):
       logs.log_error('Failed to retrieve key from cache.', key=key)
       return None
 
-    if value_raw is None:
-      return value_raw
-
-    return json.loads(value_raw)
+    return value_raw if value_raw is None else json.loads(value_raw)
 
   def get_key(self, func, args, kwargs):
     return self.key_fn(func, args, kwargs)
@@ -166,10 +160,10 @@ def _default_key(func, args, kwargs):
   """Get a key name based on function, arguments and keyword arguments."""
   # Use unicode instead of str where possible. This makes it less likely to
   # have false misses.
-  args = tuple(arg if not isinstance(arg, str) else str(arg) for arg in args)
+  args = tuple(str(arg) if isinstance(arg, str) else arg for arg in args)
 
   kwargs = {
-      key: value if not isinstance(value, str) else str(value)
+      key: str(value) if isinstance(value, str) else value
       for key, value in six.iteritems(kwargs)
   }
 

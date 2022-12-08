@@ -43,7 +43,7 @@ class Handler(base_handler.Handler):
       try:
         testcase = data_handler.get_testcase_by_id(testcase_id)
       except errors.InvalidTestcaseError:
-        logs.log('Testcase %s no longer exists.' % str(testcase_id))
+        logs.log(f'Testcase {str(testcase_id)} no longer exists.')
         continue
 
       testcase.set_metadata('predator_result', message, update_testcase=False)

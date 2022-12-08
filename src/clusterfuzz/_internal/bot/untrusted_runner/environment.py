@@ -13,6 +13,7 @@
 # limitations under the License.
 """Environment modification functions."""
 
+
 import os
 import re
 
@@ -62,9 +63,7 @@ FORWARDED_ENVIRONMENT_VARIABLES = [
     )
 ]
 
-REBASED_ENVIRONMENT_VARIABLES = set([
-    'FUZZER_DIR',
-])
+REBASED_ENVIRONMENT_VARIABLES = {'FUZZER_DIR'}
 
 
 def is_forwarded_environment_variable(environment_variable):

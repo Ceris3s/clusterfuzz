@@ -34,9 +34,9 @@ class Handler(base_handler.Handler):
     testcase.put()
 
     helpers.log(
-        'Removed the issue %s from the testcase %s' % (issue_id,
-                                                       testcase.key.id()),
-        helpers.MODIFY_OPERATION)
+        f'Removed the issue {issue_id} from the testcase {testcase.key.id()}',
+        helpers.MODIFY_OPERATION,
+    )
 
     return testcase
 

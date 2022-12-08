@@ -193,7 +193,7 @@ def get_github_url(url):
   response = requests.get(url, auth=(client_id, client_secret))
   if response.status_code != 200:
     logs.log_error(
-        'Failed to get github url: %s' % url, status_code=response.status_code)
+        f'Failed to get github url: {url}', status_code=response.status_code)
     response.raise_for_status()
 
   return json.loads(response.text)
@@ -201,11 +201,10 @@ def get_github_url(url):
 
 def find_github_item_url(github_json, name):
   """Get url of a blob/tree from a github json response."""
-  for item in github_json['tree']:
-    if item['path'] == name:
-      return item['url']
-
-  return None
+  return next(
+      (item['url'] for item in github_json['tree'] if item['path'] == name),
+      None,
+  )
 
 
 def get_oss_fuzz_projects():
@@ -233,12 +232,9 @@ def get_oss_fuzz_projects():
     projects_yaml = get_github_url(project_yaml_url)
     info = yaml.safe_load(base64.b64decode(projects_yaml['content']))
 
-    has_dockerfile = (
-        find_github_item_url(item_json, 'Dockerfile') or 'dockerfile' in info)
-    if not has_dockerfile:
-      continue
-
-    projects.append((item['path'], info))
+    if has_dockerfile := (find_github_item_url(item_json, 'Dockerfile')
+                          or 'dockerfile' in info):
+      projects.append((item['path'], info))
 
   return projects
 
@@ -279,7 +275,7 @@ def get_jobs_for_project(project, info):
   sanitizers = _process_sanitizers_field(
       info.get('sanitizers', DEFAULT_SANITIZERS))
   if not sanitizers:
-    logs.log_error('Invalid sanitizers field for %s.' % project)
+    logs.log_error(f'Invalid sanitizers field for {project}.')
     return []
 
   engines = info.get('fuzzing_engines', DEFAULT_ENGINES)
@@ -320,8 +316,9 @@ def convert_googlemail_to_gmail(email):
 
 def _add_users_to_bucket(info, client, bucket_name, iam_policy):
   """Add user account to bucket."""
-  ccs = sorted(
-      ['user:' + convert_googlemail_to_gmail(cc) for cc in ccs_from_info(info)])
+  ccs = sorted([
+      f'user:{convert_googlemail_to_gmail(cc)}' for cc in ccs_from_info(info)
+  ])
   binding = storage.get_bucket_iam_binding(iam_policy, OBJECT_VIEWER_IAM_ROLE)
 
   if binding:
@@ -350,12 +347,9 @@ def _add_users_to_bucket(info, client, bucket_name, iam_policy):
     if cc in binding['members']:
       continue
 
-    logs.log('Adding %s to bucket IAM for %s' % (cc, bucket_name))
-    # Add CCs one at a time since the API does not work with invalid or
-    # non-Google emails.
-    modified_iam_policy = storage.add_single_bucket_iam(
-        client, iam_policy, OBJECT_VIEWER_IAM_ROLE, bucket_name, cc)
-    if modified_iam_policy:
+    logs.log(f'Adding {cc} to bucket IAM for {bucket_name}')
+    if modified_iam_policy := storage.add_single_bucket_iam(
+        client, iam_policy, OBJECT_VIEWER_IAM_ROLE, bucket_name, cc):
       iam_policy = modified_iam_policy
       binding = storage.get_bucket_iam_binding(iam_policy,
                                                OBJECT_VIEWER_IAM_ROLE)
@@ -454,7 +448,7 @@ def update_fuzzer_jobs(fuzzer_entities, job_names):
       if job.name in job_names:
         continue
 
-      logs.log('Deleting job %s' % job.name)
+      logs.log(f'Deleting job {job.name}')
       to_delete[job.name] = job.key
 
       try:
@@ -475,7 +469,7 @@ def cleanup_old_projects_settings(project_names):
 
   for project in data_types.OssFuzzProject.query():
     if project.name not in project_names:
-      logs.log('Deleting project %s' % project.name)
+      logs.log(f'Deleting project {project.name}')
       to_delete.append(project.key)
 
   if to_delete:
@@ -601,13 +595,12 @@ class ProjectSetup(object):
   def _get_build_bucket(self, engine, architecture):
     """Return the bucket for the given |engine| and |architecture|."""
     if architecture != 'x86_64':
-      engine += '-' + architecture
+      engine += f'-{architecture}'
 
-    bucket = self._engine_build_buckets.get(engine)
-    if not bucket:
-      raise ProjectSetupError('Invalid fuzzing engine ' + engine)
-
-    return bucket
+    if bucket := self._engine_build_buckets.get(engine):
+      return bucket
+    else:
+      raise ProjectSetupError(f'Invalid fuzzing engine {engine}')
 
   def _deployment_bucket_name(self):
     """Deployment bucket name."""
@@ -623,19 +616,19 @@ class ProjectSetup(object):
 
   def _backup_bucket_name(self, project_name):
     """Return the backup_bucket_name."""
-    return project_name + '-backup.' + data_handler.bucket_domain_suffix()
+    return f'{project_name}-backup.{data_handler.bucket_domain_suffix()}'
 
   def _corpus_bucket_name(self, project_name):
     """Return the corpus_bucket_name."""
-    return project_name + '-corpus.' + data_handler.bucket_domain_suffix()
+    return f'{project_name}-corpus.{data_handler.bucket_domain_suffix()}'
 
   def _quarantine_bucket_name(self, project_name):
     """Return the quarantine_bucket_name."""
-    return project_name + '-quarantine.' + data_handler.bucket_domain_suffix()
+    return f'{project_name}-quarantine.{data_handler.bucket_domain_suffix()}'
 
   def _logs_bucket_name(self, project_name):
     """Return the logs bucket name."""
-    return project_name + '-logs.' + data_handler.bucket_domain_suffix()
+    return f'{project_name}-logs.{data_handler.bucket_domain_suffix()}'
 
   def _create_service_accounts_and_buckets(self, project, info):
     """Create per-project service account and buckets."""
@@ -661,7 +654,7 @@ class ProjectSetup(object):
       add_bucket_iams(info, client, logs_bucket_name, service_account)
       add_bucket_iams(info, client, quarantine_bucket_name, service_account)
     except Exception as e:
-      logs.log_error('Failed to add bucket IAMs for %s: %s' % (project, e))
+      logs.log_error(f'Failed to add bucket IAMs for {project}: {e}')
 
     # Grant the service account read access to deployment, shared corpus and
     # mutator plugin buckets.
@@ -717,7 +710,7 @@ class ProjectSetup(object):
 
       fuzzer_entity = self._fuzzer_entities.get(template.engine).get()
       if not fuzzer_entity:
-        raise ProjectSetupError('Invalid fuzzing engine ' + template.engine)
+        raise ProjectSetupError(f'Invalid fuzzing engine {template.engine}')
 
       job_name = template.job_name(project, self._config_suffix)
       job = data_types.Job.query(data_types.Job.name == job_name).get()
@@ -796,8 +789,7 @@ class ProjectSetup(object):
                 engine=template.engine,
             ))
 
-      help_url = info.get('help_url')
-      if help_url:
+      if help_url := info.get('help_url'):
         job.environment_string += 'HELP_URL = %s\n' % help_url
 
       if (template.experimental or
@@ -811,21 +803,19 @@ class ProjectSetup(object):
         job.environment_string += (
             'MINIMIZE_JOB_OVERRIDE = %s\n' % minimize_job_override)
 
-      view_restrictions = info.get('view_restrictions')
-      if view_restrictions:
+      if view_restrictions := info.get('view_restrictions'):
         if view_restrictions in ALLOWED_VIEW_RESTRICTIONS:
           job.environment_string += (
               'ISSUE_VIEW_RESTRICTIONS = %s\n' % view_restrictions)
         else:
-          logs.log_error('Invalid view restriction setting %s for project %s.' %
-                         (view_restrictions, project))
+          logs.log_error(
+              f'Invalid view restriction setting {view_restrictions} for project {project}.'
+          )
 
-      selective_unpack = info.get('selective_unpack')
-      if selective_unpack:
+      if selective_unpack := info.get('selective_unpack'):
         job.environment_string += 'UNPACK_ALL_FUZZ_TARGETS_AND_FILES = False\n'
 
-      main_repo = info.get('main_repo')
-      if main_repo:
+      if main_repo := info.get('main_repo'):
         job.environment_string += f'MAIN_REPO = {main_repo}\n'
 
       if (template.engine == 'libfuzzer' and
@@ -844,16 +834,15 @@ class ProjectSetup(object):
 
       if self._additional_vars:
         additional_vars = {}
-        additional_vars.update(self._additional_vars.get('all', {}))
+        additional_vars |= self._additional_vars.get('all', {})
 
         engine_vars = self._additional_vars.get(template.engine, {})
         engine_sanitizer_vars = engine_vars.get(template.memory_tool, {})
         additional_vars.update(engine_sanitizer_vars)
 
         for key, value in sorted(six.iteritems(additional_vars)):
-          job.environment_string += ('{} = {}\n'.format(
-              key,
-              str(value).encode('unicode-escape').decode('utf-8')))
+          job.environment_string += (
+              f"{key} = {str(value).encode('unicode-escape').decode('utf-8')}\n")
 
       job.put()
 
@@ -900,7 +889,7 @@ class ProjectSetup(object):
     up."""
     job_names = []
     for project, info in projects:
-      logs.log('Syncing configs for %s.' % project)
+      logs.log(f'Syncing configs for {project}.')
 
       backup_bucket_name = None
       corpus_bucket_name = None
@@ -1025,7 +1014,7 @@ class Handler(base_handler.Handler):
       elif projects_source.startswith(storage.GS_PREFIX):
         projects = get_projects_from_gcs(projects_source)
       else:
-        raise ProjectSetupError('Invalid projects source: ' + projects_source)
+        raise ProjectSetupError(f'Invalid projects source: {projects_source}')
 
       if not projects:
         raise ProjectSetupError('Missing projects list.')

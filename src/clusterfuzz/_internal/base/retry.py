@@ -61,10 +61,10 @@ def wrap(retries,
       if (exception is None or
           isinstance(exception, exception_type)) and num_try < tries:
         logs.log(
-            'Retrying on %s failed with %s. Retrying again.' %
-            (function_with_type, sys.exc_info()[1]),
+            f'Retrying on {function_with_type} failed with {sys.exc_info()[1]}. Retrying again.',
             num=num_try,
-            total=tries)
+            total=tries,
+        )
         sleep(get_delay(num_try, delay, backoff))
         return True
 
@@ -73,9 +73,9 @@ def wrap(retries,
           'is_succeeded': False
       })
       logs.log_error(
-          'Retrying on %s failed with %s. Raise.' % (function_with_type,
-                                                     sys.exc_info()[1]),
-          total=tries)
+          f'Retrying on {function_with_type} failed with {sys.exc_info()[1]}. Raise.',
+          total=tries,
+      )
       return False
 
     @functools.wraps(func)
@@ -128,8 +128,6 @@ def wrap(retries,
           if not handle_retry(num_try, exception=e):
             raise
 
-    if is_generator:
-      return _generator_wrapper
-    return _wrapper
+    return _generator_wrapper if is_generator else _wrapper
 
   return decorator

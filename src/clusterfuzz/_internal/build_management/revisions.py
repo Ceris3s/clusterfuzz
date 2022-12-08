@@ -143,7 +143,7 @@ def _get_link_text(start_component_revision_dict, end_component_revision_dict):
   if start_revision == end_revision:
     return str(start_revision)
 
-  return '%s:%s' % (start_revision, end_revision)
+  return f'{start_revision}:{end_revision}'
 
 
 def _get_link_url(start_component_revision_dict, end_component_revision_dict):
@@ -197,7 +197,7 @@ def _get_url_content(url):
 
 def _git_url_for_chromium_repository(repository):
   """Return git url for a chromium repository."""
-  return '%s/%s.git' % (CHROMIUM_GIT_ROOT_URL, repository)
+  return f'{CHROMIUM_GIT_ROOT_URL}/{repository}.git'
 
 
 def _is_clank(url):
@@ -213,18 +213,14 @@ def _is_deps(url):
 
 def _src_map_to_revisions_dict(src_map, project_name):
   """Convert src map contents to revisions dict."""
-  revisions_dict = {}
-
-  for key in src_map:
-    # Only add keys that have both url and rev attributes.
-    if 'url' in src_map[key] and 'rev' in src_map[key]:
-      revisions_dict[key] = {
+  return {
+      key: {
           'name': _get_component_display_name(key, project_name),
           'rev': src_map[key]['rev'],
-          'url': src_map[key]['url']
+          'url': src_map[key]['url'],
       }
-
-  return revisions_dict
+      for key in src_map if 'url' in src_map[key] and 'rev' in src_map[key]
+  }
 
 
 @memoize.wrap(memoize.FifoOnDisk(DISK_CACHE_SIZE))
@@ -240,15 +236,15 @@ def _git_commit_position_to_git_hash_for_chromium(revision, repository):
       'fields': 'git_sha',
   }
   query_string = urllib.parse.urlencode(request_variables)
-  query_url = '%s?%s' % (CRREV_NUMBERING_URL, query_string)
+  query_url = f'{CRREV_NUMBERING_URL}?{query_string}'
   url_content = _get_url_content(query_url)
   if url_content is None:
-    logs.log_error('Failed to fetch git hash from url: ' + query_url)
+    logs.log_error(f'Failed to fetch git hash from url: {query_url}')
     return None
 
   result_dict = _to_dict(url_content)
   if result_dict is None:
-    logs.log_error('Failed to parse git hash from url: ' + query_url)
+    logs.log_error(f'Failed to parse git hash from url: {query_url}')
     return None
 
   return result_dict['git_sha']
@@ -289,8 +285,7 @@ def deps_to_revisions_dict(content):
     return None
   _add_components_from_dict(deps_dict, vars_dict, revisions_dict)
 
-  deps_os_dict = local_context.get('deps_os')
-  if deps_os_dict:
+  if deps_os_dict := local_context.get('deps_os'):
     # |deps_os| variable is optional.
     for deps_os in list(deps_os_dict.values()):
       _add_components_from_dict(deps_os, vars_dict, revisions_dict)
@@ -312,7 +307,7 @@ def get_components_list(component_revisions_dict, job_type):
     return components
 
   main_repo = data_handler.get_main_repo(job_type)
-  project_src = '/src/' + project_name
+  project_src = f'/src/{project_name}'
   for component in components.copy():
     if component_revisions_dict[component]['url'] == main_repo:
       # Matches recorded main repo.
@@ -395,8 +390,7 @@ def get_component_revisions_dict(revision, job_type, platform_id=None):
   revision_vars_url = revision_vars_url_format % revision
   url_content = _get_url_content(revision_vars_url)
   if not url_content:
-    logs.log_error(
-        'Failed to get component revisions from %s.' % revision_vars_url)
+    logs.log_error(f'Failed to get component revisions from {revision_vars_url}.')
     return None
 
   # Parse as per DEPS format.
@@ -405,7 +399,7 @@ def get_component_revisions_dict(revision, job_type, platform_id=None):
     if not deps_revisions_dict:
       return None
 
-    revisions_dict.update(deps_revisions_dict)
+    revisions_dict |= deps_revisions_dict
     return revisions_dict
 
   # Parse as per Clank DEPS format.
@@ -416,7 +410,7 @@ def get_component_revisions_dict(revision, job_type, platform_id=None):
   revisions_dict = _to_dict(url_content)
   if not revisions_dict:
     logs.log_error(
-        'Failed to parse component revisions from %s.' % revision_vars_url)
+        f'Failed to parse component revisions from {revision_vars_url}.')
     return None
 
   # Parse as per source map format.
@@ -458,14 +452,17 @@ def get_component_range_list(start_revision,
           end_component_revisions_dict[key])
       component_name = end_component_revisions_dict[key]['name']
       component_revisions.append({
-          'component': component_name,
-          'link_text': '0:%s' % end_component_display_revision
+          'component':
+          component_name,
+          'link_text':
+          f'0:{end_component_display_revision}',
       })
       continue
 
     if key not in start_component_revisions_dict:
-      logs.log_warn('Key %s not found in start revision %s for job %s.' %
-                    (key, start_revision, job_type))
+      logs.log_warn(
+          f'Key {key} not found in start revision {start_revision} for job {job_type}.'
+      )
       continue
 
     start_component_revision_dict = start_component_revisions_dict[key]
@@ -502,7 +499,7 @@ def format_revision_list(revisions, use_html=True):
   result = ''
   for revision in revisions:
     if revision['component']:
-      result += '%s: ' % revision['component']
+      result += f"{revision['component']}: "
 
     if 'link_url' in revision and revision['link_url'] and use_html:
       result += '<a target="_blank" href="{link_url}">{link_text}</a>'.format(
@@ -510,35 +507,21 @@ def format_revision_list(revisions, use_html=True):
     else:
       result += revision['link_text']
 
-    if use_html:
-      result += '<br />'
-    else:
-      result += '\n'
-
+    result += '<br />' if use_html else '\n'
   return result
 
 
 def convert_revision_to_integer(revision):
   """Returns an integer that represents the given revision."""
-  # If revision is only decimal digits, like '249055', then do a simple
-  # conversion.
-  match = re.match(r'^\d+$', revision)
-  if match:
+  if match := re.match(r'^\d+$', revision):
     return int(revision)
 
-  # If the revision has 4 parts separated by dots, like '34.0.1824.2', then do
-  # the following conversion:
-  # Pad the heads with up to 5 "0"s to allow them to be sorted properly, eg.:
-  #   '34.0.1824.2'   -> 00034000000182400002
-  #   '32.0.1700.107' -> 00032000000170000107
-  # If neither of the two patterns matches, raise an error.
-  match = re.match(r'^(\d{1,5})\.(\d{1,5})\.(\d{1,5})\.(\d{1,5})$', revision)
-  if match:
-    revision = '%s%s%s%s' % (match.group(1).zfill(5), match.group(2).zfill(5),
-                             match.group(3).zfill(5), match.group(4).zfill(5))
+  if match := re.match(r'^(\d{1,5})\.(\d{1,5})\.(\d{1,5})\.(\d{1,5})$',
+                       revision):
+    revision = f'{match[1].zfill(5)}{match[2].zfill(5)}{match[3].zfill(5)}{match[4].zfill(5)}'
     return int(revision)
 
-  error = 'Unknown revision pattern: %s' % revision
+  error = f'Unknown revision pattern: {revision}'
   logs.log_error(error)
   raise ValueError(error)
 
@@ -554,7 +537,7 @@ def find_build_url(bucket_path, build_url_list, revision):
     if not match:
       continue
 
-    current_revision = convert_revision_to_integer(match.group(1))
+    current_revision = convert_revision_to_integer(match[1])
     if current_revision == revision:
       return build_url
 
@@ -571,22 +554,14 @@ def find_min_revision_index(revisions_list, revision):
   if index < len(revisions_list) and revisions_list[index] == revision:
     return index
 
-  if index > 0:
-    return index - 1
-
-  # No revisions <= given revision.
-  return None
+  return index - 1 if index > 0 else None
 
 
 def find_max_revision_index(revisions_list, revision):
   """Find the max index for bisection. Find smallest revision >= the given
   revision."""
   index = bisect.bisect_left(revisions_list, revision)
-  if index < len(revisions_list):
-    return index
-
-  # No revisions >= given revision.
-  return None
+  return index if index < len(revisions_list) else None
 
 
 def get_first_revision_in_list(revision_list):
@@ -652,8 +627,7 @@ def needs_update(revision_file, revision):
       with open(revision_file, 'r') as file_handle:
         current_revision = file_handle.read()
     except:
-      logs.log_error(
-          'Error occurred while reading revision file %s.' % revision_file)
+      logs.log_error(f'Error occurred while reading revision file {revision_file}.')
       time.sleep(utils.random_number(1, failure_wait_interval))
       continue
 
@@ -680,13 +654,12 @@ def write_revision_to_revision_file(revision_file, revision):
     with open(revision_file, 'wb') as file_handle:
       file_handle.write(str(revision).encode('utf-8'))
   except:
-    logs.log_error(
-        "Could not save revision to revision file '%s'" % revision_file)
+    logs.log_error(f"Could not save revision to revision file '{revision_file}'")
 
 
 def revision_pattern_from_build_bucket_path(bucket_path):
   """Get the revision pattern from a build bucket path."""
-  return '.*?' + os.path.basename(bucket_path)
+  return f'.*?{os.path.basename(bucket_path)}'
 
 
 @memoize.wrap(memoize.FifoOnDisk(DISK_CACHE_SIZE))
@@ -694,7 +667,7 @@ def revision_pattern_from_build_bucket_path(bucket_path):
 def revision_to_branched_from(uri, revision):
   """Interrogates git code review server to find the branch-from
   revision of a component."""
-  full_uri = "%s/+/%s?format=JSON" % (uri, revision)
+  full_uri = f"{uri}/+/{revision}?format=JSON"
   url_content = _get_url_content(full_uri)
   # gerrit intentionally returns nonsense in the first line.
   # See 'cross site script inclusion here:
@@ -702,14 +675,14 @@ def revision_to_branched_from(uri, revision):
   url_content = '\n'.join(url_content.splitlines()[1:])
   result = _to_dict(url_content)
   if not result:
-    logs.log_error("Unable to retrieve and parse url: %s" % full_uri)
+    logs.log_error(f"Unable to retrieve and parse url: {full_uri}")
     return None
   msg = result.get('message', None)
   if not msg:
-    logs.log_error("%s JSON had no 'message'" % full_uri)
+    logs.log_error(f"{full_uri} JSON had no 'message'")
     return None
   m = FIND_BRANCHED_FROM.search(msg)
   if not m:
-    logs.log_error("%s JSON message lacked Cr-Branched-From" % full_uri)
+    logs.log_error(f"{full_uri} JSON message lacked Cr-Branched-From")
     return None
   return m.group(1)

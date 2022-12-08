@@ -147,7 +147,7 @@ def _unpack_values(values):
     elif packed_value.Is(wrappers_pb2.StringValue.DESCRIPTOR):
       value = wrappers_pb2.StringValue()
     else:
-      raise ValueError('Unknown stat type for ' + key)
+      raise ValueError(f'Unknown stat type for {key}')
 
     packed_value.Unpack(value)
     unpacked[key] = value.value

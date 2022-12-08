@@ -28,7 +28,7 @@ class CSPBuilder(object):
     # Some values for sources are expected to be quoted. No escaping is done
     # since these are specific literal values that don't require it.
     if quote:
-      source = '\'{}\''.format(source)
+      source = f"\'{source}\'"
 
     assert source not in self.directives[directive], (
         'Duplicate source "{source}" for directive "{directive}"'.format(
@@ -45,7 +45,7 @@ class CSPBuilder(object):
   def remove(self, directive, source, quote=False):
     """Remove a source for a given directive."""
     if quote:
-      source = '\'{}\''.format(source)
+      source = f"\'{source}\'"
 
     assert source in self.directives[directive], (
         'Removing nonexistent "{source}" for directive "{directive}"'.format(
@@ -54,12 +54,10 @@ class CSPBuilder(object):
 
   def __str__(self):
     """Convert to a string to send with a Content-Security-Policy header."""
-    parts = []
-
-    # Sort directives for deterministic results.
-    for directive, sources in sorted(self.directives.items()):
-      # Each policy part has the form "directive source1 source2 ...;".
-      parts.append(' '.join([directive] + sources) + ';')
+    parts = [
+        ' '.join([directive] + sources) + ';'
+        for directive, sources in sorted(self.directives.items())
+    ]
 
     return ' '.join(parts)
 

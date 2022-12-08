@@ -118,7 +118,7 @@ def calculate_log_lines(log_lines):
 
 def strategy_column_name(strategy_name):
   """Convert the strategy name into stats column name."""
-  return 'strategy_%s' % strategy_name
+  return f'strategy_{strategy_name}'
 
 
 def parse_fuzzing_strategies(log_lines, strategies):
@@ -126,8 +126,7 @@ def parse_fuzzing_strategies(log_lines, strategies):
   if not strategies:
     # Extract strategies from the log.
     for line in log_lines:
-      match = LIBFUZZER_FUZZING_STRATEGIES.match(line)
-      if match:
+      if match := LIBFUZZER_FUZZING_STRATEGIES.match(line):
         strategies = match.group(1).split(',')
         break
 
@@ -140,7 +139,7 @@ def process_strategies(strategies, name_modifier=strategy_column_name):
 
   def parse_line_for_strategy_prefix(line, strategy_name):
     """Parse log line to find the value of a strategy with a prefix."""
-    strategy_prefix = strategy_name + '_'
+    strategy_prefix = f'{strategy_name}_'
     if not line.startswith(strategy_prefix):
       return
 
@@ -170,37 +169,60 @@ def parse_performance_features(log_lines, strategies, arguments):
   # TODO(ochang): Remove include_strategies once refactor is complete.
   # Initialize stats with default values.
   stats = {
-      'bad_instrumentation': 0,
-      'corpus_crash_count': 0,
-      'corpus_size': 0,
-      'crash_count': 0,
-      'dict_used': 0,
-      'edge_coverage': 0,
-      'edges_total': 0,
-      'feature_coverage': 0,
-      'initial_edge_coverage': 0,
-      'initial_feature_coverage': 0,
-      'leak_count': 0,
-      'log_lines_unwanted': 0,
-      'log_lines_from_engine': 0,
-      'log_lines_ignored': 0,
-      'max_len': 0,
-      'manual_dict_size': 0,
-      'merge_edge_coverage': 0,
-      'new_edges': 0,
-      'new_features': 0,
-      'oom_count': 0,
-      'recommended_dict_size': 0,
-      'slow_unit_count': 0,
-      'slow_units_count': 0,
-      'startup_crash_count': 1,
-      'timeout_count': 0,
+      'bad_instrumentation':
+      0,
+      'corpus_crash_count':
+      0,
+      'corpus_size':
+      0,
+      'crash_count':
+      0,
+      'dict_used':
+      0,
+      'edge_coverage':
+      0,
+      'edges_total':
+      0,
+      'feature_coverage':
+      0,
+      'initial_edge_coverage':
+      0,
+      'initial_feature_coverage':
+      0,
+      'leak_count':
+      0,
+      'log_lines_unwanted':
+      0,
+      'log_lines_from_engine':
+      0,
+      'log_lines_ignored':
+      0,
+      'max_len':
+      0,
+      'manual_dict_size':
+      0,
+      'merge_edge_coverage':
+      0,
+      'new_edges':
+      0,
+      'new_features':
+      0,
+      'oom_count':
+      0,
+      'recommended_dict_size':
+      0,
+      'slow_unit_count':
+      0,
+      'slow_units_count':
+      0,
+      'startup_crash_count':
+      1,
+      'timeout_count':
+      0,
+      'strategy_selection_method':
+      environment.get_value(
+          'STRATEGY_SELECTION_METHOD', default_value='default'),
   }
-
-  # Extract strategy selection method.
-  # TODO(ochang): Move to more general place?
-  stats['strategy_selection_method'] = environment.get_value(
-      'STRATEGY_SELECTION_METHOD', default_value='default')
 
   # Initialize all strategy stats as disabled by default.
   for strategy_type in strategy.LIBFUZZER_STRATEGY_LIST:
@@ -211,7 +233,7 @@ def parse_performance_features(log_lines, strategies, arguments):
       stats[strategy_column_name(strategy_type.name)] = 0
 
   # Process fuzzing strategies used.
-  stats.update(parse_fuzzing_strategies(log_lines, strategies))
+  stats |= parse_fuzzing_strategies(log_lines, strategies)
 
   (stats['log_lines_unwanted'], stats['log_lines_from_engine'],
    stats['log_lines_ignored']) = calculate_log_lines(log_lines)
@@ -266,8 +288,7 @@ def parse_performance_features(log_lines, strategies, arguments):
     if match:
       has_corpus = True
 
-    match = LIBFUZZER_MODULES_LOADED_REGEX.match(line)
-    if match:
+    if match := LIBFUZZER_MODULES_LOADED_REGEX.match(line):
       stats['startup_crash_count'] = 0
       stats['edges_total'] = int(match.group(2))
 
@@ -277,9 +298,7 @@ def parse_performance_features(log_lines, strategies, arguments):
       continue
 
     if not stats['max_len']:
-      # Get "max_len" value from the log, if it has not been found in arguments.
-      match = LIBFUZZER_LOG_MAX_LEN_REGEX.match(line)
-      if match:
+      if match := LIBFUZZER_LOG_MAX_LEN_REGEX.match(line):
         stats['max_len'] = int(match.group(1))
         continue
 
@@ -298,8 +317,7 @@ def parse_stats_from_merge_log(log_lines):
 
   # Reverse the list as an optimization. The line of our interest is the last.
   for line in reversed(log_lines):
-    match = LIBFUZZER_MERGE_LOG_STATS_REGEX.match(line)
-    if match:
+    if match := LIBFUZZER_MERGE_LOG_STATS_REGEX.match(line):
       stats['edge_coverage'] = int(match.group(2))
       stats['feature_coverage'] = int(match.group(1))
       break

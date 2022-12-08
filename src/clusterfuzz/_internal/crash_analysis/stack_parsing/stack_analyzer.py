@@ -44,11 +44,10 @@ def linkify_kernel_or_lkl_stacktrace_if_needed(crash_info):
 
 def _linkify_android_kernel_stacktrace(crash_info, kernel_prefix, kernel_hash):
   """Linkify Android Kernel or lkl stacktrace."""
-  temp_crash_stacktrace = ''
-  for line in crash_info.crash_stacktrace.splitlines():
-    temp_crash_stacktrace += android_kernel.get_kernel_stack_frame_link(
-        line, kernel_prefix, kernel_hash) + '\n'
-
+  temp_crash_stacktrace = ''.join(
+      android_kernel.get_kernel_stack_frame_link(line, kernel_prefix,
+                                                 kernel_hash) + '\n'
+      for line in crash_info.crash_stacktrace.splitlines())
   crash_info.crash_stacktrace = temp_crash_stacktrace
 
 

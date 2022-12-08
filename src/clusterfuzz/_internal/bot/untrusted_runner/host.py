@@ -111,8 +111,10 @@ class UntrustedRunnerStub(untrusted_runner_pb2_grpc.UntrustedRunnerStub):
 def _check_channel_state(wait_time):
   """Check the channel's state."""
   with _host_state.channel_condition:
-    if (_host_state.channel_state == ChannelState.READY or
-        _host_state.channel_state == ChannelState.INCONSISTENT):
+    if _host_state.channel_state in [
+        ChannelState.READY,
+        ChannelState.INCONSISTENT,
+    ]:
       # Nothing to do in these states.
       return _host_state.channel_state
 
@@ -159,7 +161,7 @@ def _wrap_call(func, num_retries=config.RPC_RETRY_ATTEMPTS):
           # for retries.
           raise
 
-        logs.log_warn('Failed RPC: ' + repr(e))
+        logs.log_warn(f'Failed RPC: {repr(e)}')
         if retry_attempt == num_retries:
           # Last attempt.
           host_exit_no_return()
@@ -181,7 +183,7 @@ def _do_heartbeat():
           heartbeat_pb2.HeartbeatRequest(),
           timeout=config.HEARTBEAT_TIMEOUT_SECONDS)
     except grpc.RpcError as e:
-      logs.log_warn('worker heartbeat failed: ' + repr(e))
+      logs.log_warn(f'worker heartbeat failed: {repr(e)}')
 
     time.sleep(config.HEARTBEAT_INTERVAL_SECONDS)
 
@@ -242,7 +244,7 @@ def _connect():
       options=config.GRPC_OPTIONS)
   _host_state.stub = UntrustedRunnerStub(_host_state.channel)
 
-  logs.log('Connecting to worker %s...' % server_name)
+  logs.log(f'Connecting to worker {server_name}...')
   _host_state.channel.subscribe(
       _channel_connectivity_changed, try_to_connect=True)
 
@@ -308,8 +310,9 @@ def _check_state():
     return False
 
   if status.revision != utils.current_source_version():
-    logs.log_warn('Mismatching source revision: %s (host) vs %s (worker).' %
-                  (utils.current_source_version(), status.revision))
+    logs.log_warn(
+        f'Mismatching source revision: {utils.current_source_version()} (host) vs {status.revision} (worker).'
+    )
     return False
 
   if _host_state.worker_bot_name != status.bot_name:

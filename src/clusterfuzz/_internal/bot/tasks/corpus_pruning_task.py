@@ -129,12 +129,10 @@ def _get_corpus_file_paths(corpus_path):
 
 def _limit_corpus_size(corpus_url):
   """Limit number of files and size of a corpus."""
-  corpus_count = 0
   corpus_size = 0
   deleted_corpus_count = 0
   bucket, _ = storage.get_bucket_name_and_path(corpus_url)
-  for corpus_file in storage.get_blobs(corpus_url):
-    corpus_count += 1
+  for corpus_count, corpus_file in enumerate(storage.get_blobs(corpus_url), start=1):
     corpus_size += corpus_file['size']
     if (corpus_count > CORPUS_FILES_LIMIT_FOR_FAILURES or
         corpus_size > CORPUS_SIZE_LIMIT_FOR_FAILURES):
@@ -184,26 +182,26 @@ class Context(object):
     self.merge_tmp_dir = None
     self.engine = engine.get(self.fuzz_target.engine)
     if not self.engine:
-      raise CorpusPruningException('Engine {} not found'.format(engine))
+      raise CorpusPruningException(f'Engine {engine} not found')
 
     self._created_directories = []
 
     # Set up temporary directories where corpora will be synced to.
     # Initial synced corpus.
     self.initial_corpus_path = self._create_temp_corpus_directory(
-        '%s_initial_corpus' % self.fuzz_target.project_qualified_name())
+        f'{self.fuzz_target.project_qualified_name()}_initial_corpus')
     # Minimized corpus.
     self.minimized_corpus_path = self._create_temp_corpus_directory(
-        '%s_minimized_corpus' % self.fuzz_target.project_qualified_name())
+        f'{self.fuzz_target.project_qualified_name()}_minimized_corpus')
     # Synced quarantine corpus.
     self.quarantine_corpus_path = self._create_temp_corpus_directory(
-        '%s_quarantine' % self.fuzz_target.project_qualified_name())
+        f'{self.fuzz_target.project_qualified_name()}_quarantine')
     # Synced shared corpus.
     self.shared_corpus_path = self._create_temp_corpus_directory(
-        '%s_shared' % self.fuzz_target.project_qualified_name())
+        f'{self.fuzz_target.project_qualified_name()}_shared')
     # Bad units.
     self.bad_units_path = self._create_temp_corpus_directory(
-        '%s_bad_units' % self.fuzz_target.project_qualified_name())
+        f'{self.fuzz_target.project_qualified_name()}_bad_units')
     self.merge_tmp_dir = self._create_temp_corpus_directory('merge_workdir')
 
     self.corpus = corpus_manager.FuzzTargetCorpus(
@@ -283,8 +281,8 @@ class Context(object):
       corpus_backup_url = corpus_manager.gcs_url_for_backup_file(
           backup_bucket_name, corpus_engine_name, project_qualified_name,
           corpus_backup_date)
-      corpus_backup_local_filename = '%s-%s' % (
-          project_qualified_name, os.path.basename(corpus_backup_url))
+      corpus_backup_local_filename = (
+          f'{project_qualified_name}-{os.path.basename(corpus_backup_url)}')
       corpus_backup_local_path = os.path.join(self.shared_corpus_path,
                                               corpus_backup_local_filename)
 
@@ -293,8 +291,7 @@ class Context(object):
         # missed to capture a backup for a particular day (for OSS-Fuzz, this
         # will result in a 403 instead of 404 since that GCS path belongs to
         # other project). So, just log a warning for debugging purposes only.
-        logs.log_warn(
-            'Corpus backup does not exist, ignoring: %s.' % corpus_backup_url)
+        logs.log_warn(f'Corpus backup does not exist, ignoring: {corpus_backup_url}.')
         continue
 
       if not storage.copy_file_from(corpus_backup_url,
@@ -310,11 +307,10 @@ class Context(object):
 
       if result:
         logs.log(
-            'Corpus backup url %s successfully unpacked into shared corpus.' %
-            corpus_backup_url)
+            f'Corpus backup url {corpus_backup_url} successfully unpacked into shared corpus.'
+        )
       else:
-        logs.log_error(
-            'Failed to unpack corpus backup from url %s.' % corpus_backup_url)
+        logs.log_error(f'Failed to unpack corpus backup from url {corpus_backup_url}.')
 
 
 class Runner(object):
@@ -328,7 +324,7 @@ class Runner(object):
         self.build_directory, self.context.fuzz_target.binary)
     if not self.target_path:
       raise CorpusPruningException(
-          'Failed to get fuzzer path for %s.' % self.context.fuzz_target.binary)
+          f'Failed to get fuzzer path for {self.context.fuzz_target.binary}.')
 
     self.fuzzer_options = options.get_fuzz_target_options(self.target_path)
 
@@ -362,9 +358,8 @@ class Runner(object):
 
     arguments.append(RSS_LIMIT_MB_FLAG % rss_limit)
     arguments.append(MAX_LEN_FLAG % max_len)
-    arguments.append(DETECT_LEAKS_FLAG % detect_leaks)
-    arguments.append(constants.VALUE_PROFILE_ARGUMENT)
-
+    arguments.extend((DETECT_LEAKS_FLAG % detect_leaks,
+                      constants.VALUE_PROFILE_ARGUMENT))
     return arguments
 
   def process_sanitizer_options(self):
@@ -565,13 +560,13 @@ def _record_cross_pollination_stats(stats):
       'project_qualified_name': stats.project_qualified_name,
       'method': stats.method,
       'sources': stats.sources,
-      'tags': stats.tags if stats.tags else '',
+      'tags': stats.tags or '',
       'initial_corpus_size': stats.initial_corpus_size,
       'corpus_size': stats.corpus_size,
       'initial_edge_coverage': stats.initial_edge_coverage,
       'edge_coverage': stats.edge_coverage,
       'initial_feature_coverage': stats.initial_feature_coverage,
-      'feature_coverage': stats.feature_coverage
+      'feature_coverage': stats.feature_coverage,
   }
 
   # BigQuery not available in local development. This is necessary because the
@@ -731,11 +726,10 @@ def _process_corpus_crashes(context, result):
   # Default Testcase entity values.
   crash_revision = result.revision
   job_type = environment.get_value('JOB_NAME')
-  minimized_arguments = '%TESTCASE% ' + context.fuzz_target.binary
+  minimized_arguments = f'%TESTCASE% {context.fuzz_target.binary}'
   project_name = data_handler.get_project_name(job_type)
 
-  comment = 'Fuzzer %s generated corpus testcase crashed (r%s)' % (
-      context.fuzz_target.project_qualified_name(), crash_revision)
+  comment = f'Fuzzer {context.fuzz_target.project_qualified_name()} generated corpus testcase crashed (r{crash_revision})'
 
   # Generate crash reports.
   for crash in result.crashes:
@@ -794,8 +788,8 @@ def _process_corpus_crashes(context, result):
     testcase = data_handler.get_testcase_by_id(testcase_id)
     testcase.set_metadata('fuzzer_binary_name', result.fuzzer_binary_name)
 
-    issue_metadata = engine_common.get_all_issue_metadata_for_testcase(testcase)
-    if issue_metadata:
+    if issue_metadata := engine_common.get_all_issue_metadata_for_testcase(
+        testcase):
       for key, value in issue_metadata.items():
         testcase.set_metadata(key, value, update_testcase=False)
 
@@ -829,11 +823,10 @@ def _select_targets_and_jobs_for_pollination(engine_name, current_fuzzer_name,
   targets_and_jobs = [(target, target_job)
                       for target, target_job in zip(targets, target_jobs)
                       if target_job.fuzz_target_name != current_fuzzer_name]
-  selected_targets_and_jobs = random.SystemRandom().sample(
-      targets_and_jobs, min(
-          len(targets_and_jobs), CROSS_POLLINATE_FUZZER_COUNT))
-
-  return selected_targets_and_jobs
+  return random.SystemRandom().sample(
+      targets_and_jobs,
+      min(len(targets_and_jobs), CROSS_POLLINATE_FUZZER_COUNT),
+  )
 
 
 def _get_cross_pollinate_fuzzers(engine_name, current_fuzzer_name, method, tag):
@@ -898,7 +891,7 @@ def _save_coverage_information(context, result):
         retries=data_handler.DEFAULT_FAIL_RETRIES)
   except Exception as e:
     raise CorpusPruningException(
-        'Failed to save corpus pruning result: %s.' % repr(e))
+        f'Failed to save corpus pruning result: {repr(e)}.')
 
 
 def choose_cross_pollination_strategy(current_fuzzer_name):
@@ -906,9 +899,8 @@ def choose_cross_pollination_strategy(current_fuzzer_name):
     predictable test behaviror."""
   method = random.choice([Pollination.RANDOM, Pollination.TAGGED])
   if method == Pollination.TAGGED:
-    similar_targets = corpus_tagging.get_similarly_tagged_fuzzers(
-        current_fuzzer_name)
-    if similar_targets:
+    if similar_targets := corpus_tagging.get_similarly_tagged_fuzzers(
+        current_fuzzer_name):
       return (Pollination.TAGGED, random.choice(list(similar_targets.keys())))
 
   return (Pollination.RANDOM, None)
@@ -917,7 +909,7 @@ def choose_cross_pollination_strategy(current_fuzzer_name):
 def execute_task(full_fuzzer_name, job_type):
   """Execute corpus pruning task."""
   fuzz_target = data_handler.get_fuzz_target(full_fuzzer_name)
-  task_name = 'corpus_pruning_%s_%s' % (full_fuzzer_name, job_type)
+  task_name = f'corpus_pruning_{full_fuzzer_name}_{job_type}'
   revision = 0  # Trunk revision
 
   # Get status of last execution.
@@ -935,8 +927,7 @@ def execute_task(full_fuzzer_name, job_type):
 
   # Setup fuzzer and data bundle.
   if not setup.update_fuzzer_and_data_bundles(fuzz_target.engine):
-    raise CorpusPruningException(
-        'Failed to set up fuzzer %s.' % fuzz_target.engine)
+    raise CorpusPruningException(f'Failed to set up fuzzer {fuzz_target.engine}.')
 
   cross_pollination_method, tag = choose_cross_pollination_strategy(
       full_fuzzer_name)
@@ -948,9 +939,7 @@ def execute_task(full_fuzzer_name, job_type):
   context = Context(fuzz_target, cross_pollinate_fuzzers,
                     cross_pollination_method, tag)
 
-  # Copy global blacklist into local suppressions file if LSan is enabled.
-  is_lsan_enabled = environment.get_value('LSAN')
-  if is_lsan_enabled:
+  if is_lsan_enabled := environment.get_value('LSAN'):
     # TODO(ochang): Copy this to untrusted worker.
     leak_blacklist.copy_global_to_local_blacklist()
 

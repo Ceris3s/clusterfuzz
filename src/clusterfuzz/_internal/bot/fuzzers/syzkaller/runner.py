@@ -137,9 +137,7 @@ class AndroidSyzkallerRunner(new_process.UnicodeProcessRunner):
 
   def get_command(self, additional_args=None):
     """Process.get_command override."""
-    base_command = super().get_command(additional_args=additional_args)
-
-    return base_command
+    return super().get_command(additional_args=additional_args)
 
   def get_port(self, pid: int) -> int or None:
     """Find localhost port where syzkaller is connected."""
@@ -352,8 +350,7 @@ class AndroidSyzkallerRunner(new_process.UnicodeProcessRunner):
     _, kernel_bid = kernel_utils.get_kernel_hash_and_build_id()
 
     fuzz_result = self.run_and_loop(additional_args, timeout=fuzz_timeout)
-    logs.log('Syzkaller stopped, fuzzing timed out: {}'.format(
-        fuzz_result.time_executed))
+    logs.log(f'Syzkaller stopped, fuzzing timed out: {fuzz_result.time_executed}')
 
     fuzz_logs = (fuzz_result.output or '') + '\n'
     crashes = []
@@ -372,17 +369,8 @@ class AndroidSyzkallerRunner(new_process.UnicodeProcessRunner):
                   os.path.join(subdir, file), eval_data=False).decode('utf-8'))
           fuzz_logs += log_content + '\n'
 
-          # Since each crash (report file) has a corresponding log file
-          # that contains the syscalls that caused the crash. This file is
-          # located in the same subfolder and has the same number.
-          # E.g. ./439c37d288d4f26a33a6c7e5c57a97791453a447/report15 and
-          # ./439c37d288d4f26a33a6c7e5c57a97791453a447/log15.
-          crash_testcase_file_path = os.path.join(subdir,
-                                                  'log' + file[len('report'):])
-
-          # TODO(hzawawy): Parse stats information and add them to FuzzResult.
-
-          if crash_testcase_file_path:
+          if crash_testcase_file_path := os.path.join(
+              subdir, 'log' + file[len('report'):]):
             reproduce_arguments = [unique_crash]
             actual_duration = int(fuzz_result.time_executed)
             # Write the new testcase.

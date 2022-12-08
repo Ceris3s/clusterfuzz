@@ -36,21 +36,18 @@ def _build_rows_and_columns(performance_report):
   # Build the columns.
   cols = []
   for column in constants.DISPLAY_COLUMNS:
-    label = (
-        column['title'] +
-        '<paper-tooltip>%s</paper-tooltip>' % column['tooltip'])
+    label = column['title'] + f"<paper-tooltip>{column['tooltip']}</paper-tooltip>"
     cols.append({'label': label, 'type': 'string'})
 
   # Build the rows.
   rows = []
   for issue in performance_report['issues']:
-    rows_data = []
-    for column in constants.DISPLAY_COLUMNS:
-      rows_data.append({'v': issue[column['name']]})
+    rows_data = [{
+        'v': issue[column['name']]
+    } for column in constants.DISPLAY_COLUMNS]
     rows.append({'c': rows_data})
 
-  table_data = {'cols': cols, 'rows': rows}
-  return table_data
+  return {'cols': cols, 'rows': rows}
 
 
 def _get_link_html(directory_path, relative_path):
@@ -67,7 +64,7 @@ def _get_link_html(directory_path, relative_path):
     # Invalid timestamp, can't create link. Bail out.
     return 'Invalid!'
 
-  link_path = '%s/%s' % (directory_path, relative_path)
+  link_path = f'{directory_path}/{relative_path}'
   link_name = filename
   link_url = '/gcs-redirect?%s' % urllib.parse.urlencode({'path': link_path})
   # TODO(mmoroz): build links and other markup things in polymer.

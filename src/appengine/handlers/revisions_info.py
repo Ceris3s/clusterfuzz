@@ -49,14 +49,13 @@ class Handler(base_handler.Handler):
     else:
       raise helpers.EarlyExitException('No revision specified.', 400)
 
-    component_revisions_list = revisions.get_component_range_list(
-        start_revision, end_revision, job_type)
-    if not component_revisions_list:
+    if component_revisions_list := revisions.get_component_range_list(
+        start_revision, end_revision, job_type):
+      return self.render(
+          'revisions-info.html',
+          {'info': {
+              'componentRevisionsList': component_revisions_list
+          }})
+    else:
       raise helpers.EarlyExitException('Failed to get component revisions.',
                                        400)
-
-    return self.render(
-        'revisions-info.html',
-        {'info': {
-            'componentRevisionsList': component_revisions_list
-        }})

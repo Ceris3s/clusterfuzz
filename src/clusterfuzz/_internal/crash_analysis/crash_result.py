@@ -88,9 +88,7 @@ class CrashResult(object):
       return False
 
     state = self.get_state(symbolized=False)
-    if not state.strip() and not ignore_state:
-      return False
-    return True
+    return bool(state.strip() or ignore_state)
 
   def should_ignore(self):
     """Return True if this crash should be ignored."""

@@ -42,8 +42,7 @@ class Handler(base_handler.Handler, gcs.SignedGcsHandler):
                  fuzzer_binary_name=None):
     """Send the blob."""
     minimized_string = 'minimized-' if is_minimized else ''
-    fuzzer_binary_string = (
-        fuzzer_binary_name + '-' if fuzzer_binary_name else '')
+    fuzzer_binary_string = f'{fuzzer_binary_name}-' if fuzzer_binary_name else ''
     if testcase_id:
       _, extension = os.path.splitext(blob_info.filename)
       filename = (
@@ -57,7 +56,7 @@ class Handler(base_handler.Handler, gcs.SignedGcsHandler):
     else:
       filename = blob_info.filename
 
-    content_disposition = str('attachment; filename=%s' % filename)
+    content_disposition = str(f'attachment; filename={filename}')
     response = self.serve_gcs_object(blob_info.bucket, blob_info.object_path,
                                      content_disposition)
     response.headers['Content-disposition'] = content_disposition
@@ -72,24 +71,15 @@ class Handler(base_handler.Handler, gcs.SignedGcsHandler):
       return False
 
     issue_tracker = issue_tracker_utils.get_issue_tracker_for_testcase(testcase)
-    issue = issue_tracker.get_issue(testcase.bug_information)
-    if not issue:
+    if issue := issue_tracker.get_issue(testcase.bug_information):
+        # If the issue is explicitly marked as view restricted to committers only
+        # (OSS-Fuzz only), then don't allow public download.
+      return (False if 'restrict-view-commit' in issue.labels else
+              bool(not utils.is_oss_fuzz() or 'deadline-exceeded' in issue.labels
+                   or not issue.closed_time or dates.time_has_expired(
+                       issue.closed_time, days=_OSS_FUZZ_REPRODUCER_DELAY)))
+    else:
       return False
-
-    # If the issue is explicitly marked as view restricted to committers only
-    # (OSS-Fuzz only), then don't allow public download.
-    if 'restrict-view-commit' in issue.labels:
-      return False
-
-    # For OSS-Fuzz, delay the disclosure of the reproducer by 30 days.
-    # If the deadline had previously exceeded, the reproducer was made public
-    # already so exclude that case.
-    if (utils.is_oss_fuzz() and 'deadline-exceeded' not in issue.labels and
-        issue.closed_time and not dates.time_has_expired(
-            issue.closed_time, days=_OSS_FUZZ_REPRODUCER_DELAY)):
-      return False
-
-    return True
 
   def get(self, resource=None):
     """Handle a get request with resource."""

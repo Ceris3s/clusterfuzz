@@ -61,8 +61,7 @@ class IssueTrackerPolicy(object):
 
     for status in EXPECTED_STATUSES:
       if status not in self._data['status']:
-        raise ConfigurationError(
-            'Expected status {} is not set.'.format(status))
+        raise ConfigurationError(f'Expected status {status} is not set.')
 
   def status(self, status_type):
     """Get the actual status string for the given type."""
@@ -71,10 +70,7 @@ class IssueTrackerPolicy(object):
   def label(self, label_type):
     """Get the actual label string for the given type."""
     label = self._data['labels'].get(label_type)
-    if label is None:
-      return None
-
-    return str(label)
+    return None if label is None else str(label)
 
   def substitution_mapping(self, label):
     """Get an explicit substitution mapping."""
@@ -82,10 +78,7 @@ class IssueTrackerPolicy(object):
       return label
 
     mapped = self._data['substitutions'].get(label)
-    if not mapped:
-      return label
-
-    return str(mapped)
+    return str(mapped) if mapped else label
 
   @property
   def deadline_policy_message(self):
@@ -118,10 +111,9 @@ class IssueTrackerPolicy(object):
       if 'security' in self._data:
         self._apply_new_issue_properties(policy, self._data['security'],
                                          is_crash)
-    else:
-      if 'non_security' in self._data:
-        self._apply_new_issue_properties(policy, self._data['non_security'],
-                                         is_crash)
+    elif 'non_security' in self._data:
+      self._apply_new_issue_properties(policy, self._data['non_security'],
+                                       is_crash)
 
     return policy
 
@@ -136,22 +128,17 @@ class IssueTrackerPolicy(object):
     if 'ccs' in issue_type:
       policy.ccs.extend(issue_type['ccs'])
 
-    labels = issue_type.get('labels')
-    if labels:
+    if labels := issue_type.get('labels'):
       policy.labels.extend(_to_str_list(labels))
 
-    issue_body_footer = issue_type.get('issue_body_footer')
-    if issue_body_footer:
+    if issue_body_footer := issue_type.get('issue_body_footer'):
       policy.issue_body_footer = issue_body_footer
 
     if is_crash:
-      crash_labels = issue_type.get('crash_labels')
-      if crash_labels:
+      if crash_labels := issue_type.get('crash_labels'):
         policy.labels.extend(_to_str_list(crash_labels))
-    else:
-      non_crash_labels = issue_type.get('non_crash_labels')
-      if non_crash_labels:
-        policy.labels.extend(_to_str_list(non_crash_labels))
+    elif non_crash_labels := issue_type.get('non_crash_labels'):
+      policy.labels.extend(_to_str_list(non_crash_labels))
 
   def get_existing_issue_properties(self):
     """Get the properties to apply to a new issue."""
@@ -168,12 +155,10 @@ def get(project_name):
   issue_tracker_config = local_config.IssueTrackerConfig()
   project_config = issue_tracker_config.get(project_name)
   if not project_config:
-    raise ConfigurationError(
-        'Issue tracker for {} does not exist'.format(project_name))
+    raise ConfigurationError(f'Issue tracker for {project_name} does not exist')
 
-  if not 'policies' in project_config:
-    raise ConfigurationError(
-        'Policies for {} do not exist'.format(project_name))
+  if 'policies' not in project_config:
+    raise ConfigurationError(f'Policies for {project_name} do not exist')
 
   return IssueTrackerPolicy(project_config['policies'])
 

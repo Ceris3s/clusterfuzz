@@ -122,12 +122,14 @@ class Handler(base_handler.Handler):
       load = {
           'destinationTable': {
               'projectId': project_id,
-              'tableId': table_id + '$' + date_string,
+              'tableId': f'{table_id}${date_string}',
               'datasetId': dataset_id,
           },
-          'schemaUpdateOptions': ['ALLOW_FIELD_ADDITION',],
+          'schemaUpdateOptions': [
+              'ALLOW_FIELD_ADDITION',
+          ],
           'sourceFormat': 'NEWLINE_DELIMITED_JSON',
-          'sourceUris': ['gs:/' + gcs_path + '*.json'],
+          'sourceUris': [f'gs:/{gcs_path}*.json'],
           'writeDisposition': 'WRITE_TRUNCATE',
       }
       if schema is not None:
@@ -147,7 +149,7 @@ class Handler(base_handler.Handler):
       # running, but having a BigQuery jobId in the log would make our life
       # simpler if we ever have to manually check the status of the query.
       # See https://cloud.google.com/bigquery/docs/reference/rest/v2/jobs/query.
-      logs.log('Response from BigQuery: %s' % response)
+      logs.log(f'Response from BigQuery: {response}')
 
   @handler.cron()
   def get(self):
@@ -160,5 +162,5 @@ class Handler(base_handler.Handler):
     # as we create the load jobs.
     bigquery_client = big_query.get_api_client()
     for fuzzer in list(data_types.Fuzzer.query()):
-      logs.log('Loading stats to BigQuery for %s.' % fuzzer.name)
+      logs.log(f'Loading stats to BigQuery for {fuzzer.name}.')
       self._load_data(bigquery_client, fuzzer.name)

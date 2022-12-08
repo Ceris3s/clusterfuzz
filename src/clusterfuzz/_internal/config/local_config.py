@@ -152,11 +152,7 @@ class Config(object):
 
   def sub_config(self, path):
     """Return a new config with a new sub-root."""
-    if self._root:
-      new_root = self._root + SEPARATOR + path
-    else:
-      new_root = path
-
+    new_root = self._root + SEPARATOR + path if self._root else path
     return Config(root=new_root)
 
   def _get_helper(self, key_name='', default=None,

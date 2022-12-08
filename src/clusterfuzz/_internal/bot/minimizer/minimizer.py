@@ -64,9 +64,7 @@ class TestQueue(object):
   def _pop(self):
     """Pull a single hypothesis to process from the queue."""
     with self.lock:
-      if not self.queue:
-        return None
-      return self.queue.pop(0)
+      return self.queue.pop(0) if self.queue else None
 
   def _work(self):
     """Process items from the queue until it is empty."""
@@ -126,7 +124,7 @@ class TestQueue(object):
       for thread in threads:
         thread.start()
 
-      while any([thread.is_alive() for thread in threads]):
+      while any(thread.is_alive() for thread in threads):
         if self.deadline_check:
           self.deadline_check(cleanup_function=self._cleanup)
 
@@ -222,7 +220,7 @@ class Testcase(object):
         self.get_required_tokens()), len(
             self.required_tokens), self.runs_executed)
     if is_final_progress_report:
-      message = "Done with this round of minimization. " + message
+      message = f"Done with this round of minimization. {message}"
     self.minimizer.progress_report_function(message)
 
   # Functions used when preparing tests.
@@ -465,9 +463,8 @@ class Testcase(object):
     # Done with minimization, output log one more time
     self._report_progress(is_final_progress_report=True)
 
-    if not self.minimizer.tokenize:
-      return self.get_required_tokens()
-    return self.get_current_testcase_data()
+    return (self.get_current_testcase_data()
+            if self.minimizer.tokenize else self.get_required_tokens())
 
   def get_required_tokens(self):
     """Return all required tokens for this test case."""
@@ -518,20 +515,14 @@ class Minimizer(object):
     self.delete_temp_files = delete_temp_files
     self.progress_report_function = progress_report_function
 
-    if batch_size:
-      self.batch_size = batch_size
-    else:
-      self.batch_size = DEFAULT_TESTS_PER_THREAD * max_threads
-
-    if not get_temp_file:
-      self.get_temp_file = functools.partial(
-          tempfile.NamedTemporaryFile,
-          mode='wb',
-          delete=False,
-          prefix='min_',
-          suffix=file_extension)
-    else:
-      self.get_temp_file = get_temp_file
+    self.batch_size = batch_size or DEFAULT_TESTS_PER_THREAD * max_threads
+    self.get_temp_file = get_temp_file or functools.partial(
+        tempfile.NamedTemporaryFile,
+        mode='wb',
+        delete=False,
+        prefix='min_',
+        suffix=file_extension,
+    )
 
   @staticmethod
   def _handle_constructor_argument(key, kwargs, default=None):

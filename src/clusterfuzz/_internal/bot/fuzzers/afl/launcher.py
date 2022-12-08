@@ -131,7 +131,7 @@ class AflConfig(object):
 
       afl_option = self.LIBFUZZER_TO_AFL_OPTIONS[libfuzzer_name]
       if afl_option.type == AflOptionType.ARG:
-        self.additional_afl_arguments.append('%s%s' % (afl_option.name, value))
+        self.additional_afl_arguments.append(f'{afl_option.name}{value}')
       else:
         assert afl_option.type == AflOptionType.ENV_VAR
         self.additional_env_vars[afl_option.name] = value
@@ -199,13 +199,9 @@ class AflFuzzOutputDirectory(object):
   def count_new_units(self, corpus_path):
     """Count the number of new units (testcases) in |corpus_path|."""
     corpus_files = os.listdir(corpus_path)
-    num_new_units = 0
-
-    for testcase in corpus_files:
-      if self.is_new_testcase(os.path.join(corpus_path, testcase)):
-        num_new_units += 1
-
-    return num_new_units
+    return sum(
+        bool(self.is_new_testcase(os.path.join(corpus_path, testcase)))
+        for testcase in corpus_files)
 
   def copy_crash_if_needed(self, testcase_path):
     """Copy the first crash found by AFL to |testcase_path| (the input file
@@ -547,8 +543,9 @@ class AflRunnerCommon(object):
     print('Running command:', engine_common.get_command_quoted(result.command))
     if result.return_code not in [0, 1, -6]:
       logs.log_error(
-          'AFL target exited with abnormal exit code: %s.' % result.return_code,
-          output=result.output)
+          f'AFL target exited with abnormal exit code: {result.return_code}.',
+          output=result.output,
+      )
 
     return result
 
@@ -582,11 +579,8 @@ class AflRunnerCommon(object):
 
   @staticmethod
   def get_arg_index(afl_args, flag):
-    for idx, arg in enumerate(afl_args):
-      if arg.startswith(flag):
-        return idx
-
-    return -1
+    return next(
+        (idx for idx, arg in enumerate(afl_args) if arg.startswith(flag)), -1)
 
   @classmethod
   def set_arg(cls, afl_args, flag, value):
@@ -595,11 +589,7 @@ class AflRunnerCommon(object):
     and |value| are added.
     """
     idx = cls.get_arg_index(afl_args, flag)
-    if value:
-      new_arg = flag + str(value)
-    else:
-      new_arg = flag
-
+    new_arg = flag + str(value) if value else flag
     # Arg is not already in afl_args, add it.
     if idx == -1:
       afl_args.insert(0, new_arg)
@@ -638,14 +628,12 @@ class AflRunnerCommon(object):
     project_qualified_target_name = (
         data_types.fuzz_target_project_qualified_name(utils.current_project(),
                                                       target_name))
-    # Generate new testcase mutations according to candidate generator. If
-    # testcase mutations are properly generated, set generator strategy
-    # accordingly.
-    generator_used = engine_common.generate_new_testcase_mutations(
-        self.afl_input.input_directory, self.afl_input.input_directory,
-        project_qualified_target_name, self.strategies.candidate_generator)
-
-    if generator_used:
+    if generator_used := engine_common.generate_new_testcase_mutations(
+        self.afl_input.input_directory,
+        self.afl_input.input_directory,
+        project_qualified_target_name,
+        self.strategies.candidate_generator,
+    ):
       self.strategies.generator_strategy = self.strategies.candidate_generator
 
     # Delete large testcases created by generators.
@@ -882,9 +870,9 @@ class AflRunnerCommon(object):
       # If we can't do anything useful about the error, log it and don't try to
       # fuzz again.
       logs.log_error(
-          ('Afl exited with a non-zero exitcode: %s. Cannot recover.' %
-           fuzz_result.return_code),
-          engine_output=fuzz_result.output)
+          f'Afl exited with a non-zero exitcode: {fuzz_result.return_code}. Cannot recover.',
+          engine_output=fuzz_result.output,
+      )
 
       break
 
@@ -1036,7 +1024,7 @@ class AflRunnerCommon(object):
 
     # Replace -o argument.
     if environment.get_value('USE_MINIJAIL'):
-      showmap_output_path = '/' + self.SHOWMAP_FILENAME
+      showmap_output_path = f'/{self.SHOWMAP_FILENAME}'
     else:
       showmap_output_path = self.showmap_output_path
     idx = self.get_arg_index(showmap_args, constants.OUTPUT_FLAG)
@@ -1178,13 +1166,12 @@ class MinijailAflRunner(AflRunnerCommon, new_process.UnicodeProcessRunnerMixin,
     chroot_rel_dir = os.path.relpath(corpus_directory, self.chroot.directory)
     if not chroot_rel_dir.startswith(os.pardir):
       # Already in chroot.
-      return '/' + chroot_rel_dir
+      return f'/{chroot_rel_dir}'
 
-    binding = self.chroot.get_binding(corpus_directory)
-    if binding:
+    if binding := self.chroot.get_binding(corpus_directory):
       return binding.dest_path
 
-    dest_path = '/' + os.path.basename(corpus_directory)
+    dest_path = f'/{os.path.basename(corpus_directory)}'
     self.chroot.add_binding(
         minijail.ChrootBinding(corpus_directory, dest_path, True))
 
@@ -1222,8 +1209,7 @@ class MinijailAflRunner(AflRunnerCommon, new_process.UnicodeProcessRunnerMixin,
   def set_environment_variables(self):
     """Overridden set_environment_variables."""
     super().set_environment_variables()
-    environment.set_value(constants.STDERR_FILENAME_ENV_VAR,
-                          '/' + STDERR_FILENAME)
+    environment.set_value(constants.STDERR_FILENAME_ENV_VAR, f'/{STDERR_FILENAME}')
 
 
 class CorpusElement(object):
@@ -1243,8 +1229,7 @@ class Corpus(object):
   @property
   def element_paths(self):
     """Returns the filepaths of all elements in the corpus."""
-    return set(
-        element.path for element in six.itervalues(self.features_and_elements))
+    return {element.path for element in six.itervalues(self.features_and_elements)}
 
   def _associate_feature_with_element(self, feature, element):
     """Associate a feature with an element if the element is the smallest for
@@ -1271,10 +1256,8 @@ def _verify_system_config():
 
   def _check_core_pattern_file():
     """Verifies that core pattern file content is set to 'core'."""
-    if not os.path.exists(constants.CORE_PATTERN_FILE_PATH):
-      return False
-
-    return open(constants.CORE_PATTERN_FILE_PATH).read().strip() == 'core'
+    return (open(constants.CORE_PATTERN_FILE_PATH).read().strip() == 'core'
+            if os.path.exists(constants.CORE_PATTERN_FILE_PATH) else False)
 
   if _check_core_pattern_file():
     return
@@ -1367,10 +1350,7 @@ def get_first_stacktrace(stderr_data):
   match = re.search(sanitizer_stacktrace_regex, stderr_data)
 
   # If we can't find the first stacktrace, return the whole thing.
-  if match is None:
-    return stderr_data
-
-  return stderr_data[:match.end()]
+  return stderr_data if match is None else stderr_data[:match.end()]
 
 
 # TODO(mbarbella): After deleting the non-engine AFL code, remove this

@@ -124,14 +124,12 @@ def get_component_information_by_name(chromium_revision,
   if component_revisions is None:
     return None
 
-  all_details = []
-  for value in six.itervalues(component_revisions):
-    if value and 'name' in value and value['name'].lower() == lower_name:
-      all_details.append(value)
+  all_details = [
+      value for value in six.itervalues(component_revisions)
+      if value and 'name' in value and value['name'].lower() == lower_name
+  ]
   # If we found several components with the same name, return nothing useful.
-  if len(all_details) == 1:
-    return all_details[0]
-  return None
+  return all_details[0] if len(all_details) == 1 else None
 
 
 def get_component_impacts_from_url(component_name,
@@ -144,7 +142,7 @@ def get_component_impacts_from_url(component_name,
            (component_name, regression_range, str(job_type), str(platform)))
   start_revision, end_revision = get_start_and_end_revision(
       regression_range, job_type)
-  logs.log('Start and end revision %s, %s' % (start_revision, end_revision))
+  logs.log(f'Start and end revision {start_revision}, {end_revision}')
   if not end_revision:
     return Impacts()
 
@@ -152,10 +150,10 @@ def get_component_impacts_from_url(component_name,
   if not build_revision_mappings:
     return Impacts()
 
-  found_impacts = dict()
+  found_impacts = {}
   for build in ['extended_stable', 'stable', 'beta', 'canary']:
     mapping = build_revision_mappings.get(build)
-    logs.log('Considering impacts for %s.' % (build))
+    logs.log(f'Considering impacts for {build}.')
     # TODO(yuanjunh): bypass for now but remove it after ES is enabled.
     if build == 'extended_stable' and not mapping:
       found_impacts[build] = Impact()
@@ -167,15 +165,15 @@ def get_component_impacts_from_url(component_name,
     if not mapping:
       return Impacts()
     chromium_revision = mapping['revision']
-    logs.log('Chromium revision is %s.' % (chromium_revision))
+    logs.log(f'Chromium revision is {chromium_revision}.')
     component_revision = get_component_information_by_name(
         chromium_revision, component_name)
-    logs.log('Component revision is %s.' % (component_revision))
+    logs.log(f'Component revision is {component_revision}.')
     if not component_revision:
       return Impacts()
     branched_from = revisions.revision_to_branched_from(
         component_revision['url'], component_revision['rev'])
-    logs.log('Branched from revision is %s.' % (branched_from))
+    logs.log(f'Branched from revision is {branched_from}.')
     if not branched_from:
       # This is a head revision, not branched.
       branched_from = component_revision['rev']
@@ -183,7 +181,7 @@ def get_component_impacts_from_url(component_name,
         'revision': branched_from,
         'version': mapping['version']
     }, start_revision, end_revision, build == 'canary')
-    logs.log('Resulting impact is %s.' % (str(impact)))
+    logs.log(f'Resulting impact is {str(impact)}.')
     found_impacts[build] = impact
   return Impacts(found_impacts['stable'], found_impacts['beta'],
                  found_impacts['extended_stable'], found_impacts['canary'])
@@ -191,17 +189,18 @@ def get_component_impacts_from_url(component_name,
 
 def get_impacts_from_url(regression_range, job_type, platform=None):
   """Gets impact string using the build information url."""
-  logs.log('Get component impacts from URL: range %s, '
-           'job type %s.' % (regression_range, str(job_type)))
-  component_name = data_handler.get_component_name(job_type)
-  if component_name:
+  logs.log(
+      f'Get component impacts from URL: range {regression_range}, job type {str(job_type)}.'
+  )
+  if component_name := data_handler.get_component_name(job_type):
     return get_component_impacts_from_url(component_name, regression_range,
                                           job_type, platform)
 
   start_revision, end_revision = get_start_and_end_revision(
       regression_range, job_type)
-  logs.log('Proceeding to calculate impacts as non-component based on '
-           'range %s-%s' % (str(start_revision), str(end_revision)))
+  logs.log(
+      f'Proceeding to calculate impacts as non-component based on range {str(start_revision)}-{str(end_revision)}'
+  )
   if not end_revision:
     return Impacts()
 
@@ -305,8 +304,7 @@ def get_impact_on_build(build_type, current_version, testcase,
   """Return impact and additional trace on a prod build given build_type."""
   build = build_manager.setup_production_build(build_type)
   if not build:
-    raise BuildFailedException(
-        'Build setup failed for %s' % build_type.capitalize())
+    raise BuildFailedException(f'Build setup failed for {build_type.capitalize()}')
 
   if not build_manager.check_app_path():
     raise AppFailedException()

@@ -41,9 +41,8 @@ class IssueTrackerManager(object):
     config = db_config.get()
     credentials = json.loads(config.jira_credentials)
     jira_url = config.jira_url
-    jira_client = jira.JIRA(
+    return jira.JIRA(
         jira_url, auth=(credentials['username'], credentials['password']))
-    return jira_client
 
   def save(self, issue):
     """Save an issue."""
@@ -60,8 +59,7 @@ class IssueTrackerManager(object):
         }
     }
 
-    jira_issue = self.client.create_issue(fields=default_fields)
-    return jira_issue
+    return self.client.create_issue(fields=default_fields)
 
   def _update(self, issue):
     """Update an issue."""
@@ -83,15 +81,9 @@ class IssueTrackerManager(object):
     }
 
     # Brittle - we should be pulling the equivalent of 'new' from the policy.
-    if issue.status != 'Open':
-      # This assumes the following:
-      # 1. If issue.status is an instance of Resource, the value comes from
-      #    Jira directly and has not been changed.
-      # 2. If issue.status is not an instance of Resource, the value is a
-      #    string and the issue status should be updated.
-      # Brittle - we should be pulling the equivalent of 'new' from the policy.
-      if not isinstance(issue.status, jira.resources.Resource):
-        self.client.transition_issue(issue.jira_issue, transition=issue.status)
+    if issue.status != 'Open' and not isinstance(issue.status,
+                                                 jira.resources.Resource):
+      self.client.transition_issue(issue.jira_issue, transition=issue.status)
 
     if issue.assignee is not None:
       if isinstance(issue.assignee, jira.resources.Resource):
@@ -115,9 +107,7 @@ class IssueTrackerManager(object):
   def get_watchers(self, issue):
     """Retrieve list of watchers."""
     watchlist = self.client.watchers(issue)
-    watchers = []
-    for watcher in watchlist.watchers:
-      watchers.append(watcher.name)
+    watchers = [watcher.name for watcher in watchlist.watchers]
     return watchers
 
   def get_issue(self, issue_id):
@@ -132,5 +122,4 @@ class IssueTrackerManager(object):
 
   def get_issues(self, query_string, max_results=10000):
     """Return all issues for a given query."""
-    issues = self.client.search_issues(query_string, maxResults=max_results)
-    return issues
+    return self.client.search_issues(query_string, maxResults=max_results)

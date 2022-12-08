@@ -173,8 +173,7 @@ class UpdateJob(base_handler.GcsUploadHandler):
     job.environment_string = environment_string
     job.templates = templates
 
-    blob_info = self.get_upload()
-    if blob_info:
+    if blob_info := self.get_upload():
       job.custom_binary_key = str(blob_info.key())
       job.custom_binary_filename = blob_info.filename
       job.custom_binary_revision = previous_custom_binary_revision + 1
@@ -191,14 +190,12 @@ class UpdateJob(base_handler.GcsUploadHandler):
     # pylint: disable=unexpected-keyword-arg
     _ = data_handler.get_all_job_type_names(__memoize_force__=True)
 
-    helpers.log('Job created %s' % name, helpers.MODIFY_OPERATION)
+    helpers.log(f'Job created {name}', helpers.MODIFY_OPERATION)
     template_values = {
-        'title':
-            'Success',
-        'message': ('Job %s is successfully updated. '
-                    'Redirecting back to jobs page...') % name,
-        'redirect_url':
-            '/jobs',
+        'title': 'Success',
+        'message':
+        f'Job {name} is successfully updated. Redirecting back to jobs page...',
+        'redirect_url': '/jobs',
     }
     return self.render('message.html', template_values)
 
@@ -225,24 +222,20 @@ class UpdateJobTemplate(base_handler.Handler):
       raise helpers.EarlyExitException(
           'No environment string provided for job template.', 400)
 
-    template = data_types.JobTemplate.query(
-        data_types.JobTemplate.name == name).get()
-    if not template:
-      template = data_types.JobTemplate()
-
+    template = (
+        data_types.JobTemplate.query(data_types.JobTemplate.name == name).get()
+        or data_types.JobTemplate())
     template.name = name
     template.environment_string = environment_string
     template.put()
 
-    helpers.log('Template created %s' % name, helpers.MODIFY_OPERATION)
+    helpers.log(f'Template created {name}', helpers.MODIFY_OPERATION)
 
     template_values = {
-        'title':
-            'Success',
-        'message': ('Template %s is successfully updated. '
-                    'Redirecting back to jobs page...') % name,
-        'redirect_url':
-            '/jobs',
+        'title': 'Success',
+        'message':
+        f'Template {name} is successfully updated. Redirecting back to jobs page...',
+        'redirect_url': '/jobs',
     }
     return self.render('message.html', template_values)
 
@@ -275,7 +268,7 @@ class DeleteJobHandler(base_handler.Handler):
     # Delete job.
     job.key.delete()
 
-    helpers.log('Deleted job %s' % job.name, helpers.MODIFY_OPERATION)
+    helpers.log(f'Deleted job {job.name}', helpers.MODIFY_OPERATION)
     return self.redirect('/jobs')
 
 

@@ -21,10 +21,8 @@ import six
 
 def find_index(items, condition_fn):
   """Return the index of the first item whose condition_fn is True."""
-  for index, item in enumerate(items):
-    if condition_fn(item):
-      return index
-  return None
+  return next(
+      (index for index, item in enumerate(items) if condition_fn(item)), None)
 
 
 def is_reproducible(item):

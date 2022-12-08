@@ -42,11 +42,8 @@ def _execute(cmd):
 def get_launch_service_path():
   """Get launch service path from lsregister."""
   for line in _execute(LSREGISTER_CMD):
-    m = LAUNCH_SERVICE_PATH_REGEX.match(line)
-    if not m:
-      continue
-
-    return '/'.join(m.group(1).split('/')[:5])
+    if m := LAUNCH_SERVICE_PATH_REGEX.match(line):
+      return '/'.join(m.group(1).split('/')[:5])
 
   return None
 

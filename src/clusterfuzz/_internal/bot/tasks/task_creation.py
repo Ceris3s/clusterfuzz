@@ -90,11 +90,7 @@ def create_blame_task_if_needed(testcase):
     return
 
   create_task = False
-  if testcase.one_time_crasher_flag:
-    # For unreproducible testcases, it is still beneficial to get component
-    # information from blame task.
-    create_task = True
-  else:
+  if not testcase.one_time_crasher_flag:
     # Reproducible testcase.
     # Step 1: Check if the regression task finished. If not, bail out.
     if not testcase.regression:
@@ -105,8 +101,9 @@ def create_blame_task_if_needed(testcase):
     if build_manager.has_symbolized_builds() and not testcase.symbolized:
       return
 
-    create_task = True
-
+  # For unreproducible testcases, it is still beneficial to get component
+  # information from blame task.
+  create_task = True
   if create_task:
     tasks.add_task('blame', testcase.key.id(), testcase.job_type)
 

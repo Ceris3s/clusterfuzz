@@ -40,36 +40,31 @@ def _get_alive_cutoff():
   seconds_to_wait_for_dead_bot = (
       tasks.TASK_LEASE_SECONDS + tasks.TASK_COMPLETION_BUFFER +
       data_types.HEARTBEAT_WAIT_INTERVAL)
-  alive_cutoff = utils.utcnow() - datetime.timedelta(
+  return utils.utcnow() - datetime.timedelta(
       seconds=seconds_to_wait_for_dead_bot)
-  return alive_cutoff
 
 
 def _convert_heartbeats_to_dicts(heartbeats):
   """Format heartbeats for template."""
   alive_cutoff = _get_alive_cutoff()
-  result = []
-  for heartbeat in heartbeats:
-    result.append({
-        'bot_name':
-            heartbeat.bot_name,
-        'source_version':
-            heartbeat.source_version,
-        'task_payload':
-            heartbeat.task_payload,
-        'platform_id':
-            heartbeat.platform_id,
-        'task_end_time':
-            utils.utc_datetime_to_timestamp(heartbeat.task_end_time)
-            if heartbeat.task_end_time else '',
-        'last_beat_time':
-            utils.utc_datetime_to_timestamp(heartbeat.last_beat_time)
-            if heartbeat.last_beat_time else '',
-        'alive':
-            'alive' if heartbeat.last_beat_time > alive_cutoff else 'dead'
-    })
-
-  return result
+  return [{
+      'bot_name':
+      heartbeat.bot_name,
+      'source_version':
+      heartbeat.source_version,
+      'task_payload':
+      heartbeat.task_payload,
+      'platform_id':
+      heartbeat.platform_id,
+      'task_end_time':
+      utils.utc_datetime_to_timestamp(heartbeat.task_end_time)
+      if heartbeat.task_end_time else '',
+      'last_beat_time':
+      utils.utc_datetime_to_timestamp(heartbeat.last_beat_time)
+      if heartbeat.last_beat_time else '',
+      'alive':
+      'alive' if heartbeat.last_beat_time > alive_cutoff else 'dead',
+  } for heartbeat in heartbeats]
 
 
 def get_results():
@@ -137,10 +132,9 @@ class DeadBotsHandler(base_handler.Handler):
     else:
       raise helpers.EarlyExitException('Dead bots list unavailable.', 400)
 
-    result = {}
     alive_cutoff = _get_alive_cutoff()
-    for heartbeat in heartbeats:
-      if heartbeat.last_beat_time <= alive_cutoff:
-        result[heartbeat.bot_name] = 'dead'
-
+    result = {
+        heartbeat.bot_name: 'dead'
+        for heartbeat in heartbeats if heartbeat.last_beat_time <= alive_cutoff
+    }
     return self.render_json(result)

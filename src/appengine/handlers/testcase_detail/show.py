@@ -109,16 +109,15 @@ def highlight_common_stack_frames(crash_stacktrace):
     if stack_index and line.startswith('+-'):
       break
 
-    match = re.match(stack_trace_line_format, line)
-    if match:
-      frame_no = int(match.group(1))
+    if match := re.match(stack_trace_line_format, line):
+      frame_no = int(match[1])
 
       # This means we encountered another stack like free or alloc stack.
       if old_frame_no > frame_no:
         stack_index += 1
         crash_stacks.append([])
 
-      crash_stacks[stack_index].append(match.group(2))
+      crash_stacks[stack_index].append(match[2])
       old_frame_no = frame_no
 
   # If we have just one crash stack and no other stack,
@@ -130,11 +129,8 @@ def highlight_common_stack_frames(crash_stacktrace):
   match_index = -1
   start_index_crash_stack_1 = len(crash_stacks[0]) - 1
   start_index_crash_stack_2 = len(crash_stacks[1]) - 1
-  while True:
-    if (crash_stacks[0][start_index_crash_stack_1] !=
-        crash_stacks[1][start_index_crash_stack_2]):
-      break
-
+  while (crash_stacks[0][start_index_crash_stack_1] == crash_stacks[1]
+         [start_index_crash_stack_2]):
     match_index = [start_index_crash_stack_1, start_index_crash_stack_2]
 
     if not start_index_crash_stack_1:
@@ -153,9 +149,8 @@ def highlight_common_stack_frames(crash_stacktrace):
   stack_index = 0
   frame_index = -1
   for line in crash_stacktrace.splitlines():
-    match = re.match(stack_trace_line_format, line)
-    if match:
-      frame_no = int(match.group(1))
+    if match := re.match(stack_trace_line_format, line):
+      frame_no = int(match[1])
 
       # This means we encountered another stack like free or alloc stack.
       if old_frame_no > frame_no:
@@ -167,7 +162,7 @@ def highlight_common_stack_frames(crash_stacktrace):
 
       # We only care about highlighting the first two stacks.
       if stack_index <= 1 and frame_index >= match_index[stack_index]:
-        line = '<b>%s</b>' % line
+        line = f'<b>{line}</b>'
 
     highlighted_crash_stacktrace_lines.append(line)
 
@@ -176,8 +171,7 @@ def highlight_common_stack_frames(crash_stacktrace):
 
 def _linkify_android_kernel_stack_frame_if_needed(line):
   """Linkify links to android kernel source."""
-  match = KERNEL_LINK_REGEX.match(line)
-  if match:
+  if match := KERNEL_LINK_REGEX.match(line):
     return KERNEL_LINK_FORMAT % (match.group(1), match.group(2), match.group(3),
                                  match.group(4))
 
@@ -261,10 +255,7 @@ class Gap(object):
 def _is_line_important(line_content, frames):
   """Check if the line contains a frame; it means the line is
      important."""
-  for frame in frames:
-    if frame in line_content:
-      return True
-  return False
+  return any(frame in line_content for frame in frames)
 
 
 def get_stack_frames(crash_state_lines):
@@ -276,9 +267,8 @@ def get_stack_frames(crash_state_lines):
   for line in crash_state_lines:
     added = False
     for regex in COMPILED_CRASH_STATE_REGEXES:
-      matches = re.match(regex, line)
-      if matches:
-        frames.append(matches.group(1))
+      if matches := re.match(regex, line):
+        frames.append(matches[1])
         added = True
         break
 
@@ -341,28 +331,21 @@ def _get_revision_range_html(job_type,
 
   component_rev_list = revisions.get_component_range_list(
       start_revision, end_revision, job_type, platform_id=platform_id)
-  if not component_rev_list:
-    return ('%s:%s (No component revisions found!)' % (start_revision,
-                                                       end_revision))
-
-  return revisions.format_revision_list(component_rev_list)
+  return (revisions.format_revision_list(component_rev_list)
+          if component_rev_list else
+          f'{start_revision}:{end_revision} (No component revisions found!)')
 
 
 def _get_blob_size_string(blob_key):
   """Return blob size string."""
   blob_size = blobs.get_blob_size(blob_key)
-  if blob_size is None:
-    return None
-
-  return utils.get_size_string(blob_size)
+  return None if blob_size is None else utils.get_size_string(blob_size)
 
 
 def _format_reproduction_help(reproduction_help):
   """Format a reproduction help string as HTML (linkified with break tags)."""
-  if not reproduction_help:
-    return ''
-
-  return jinja2.utils.urlize(reproduction_help).replace('\n', '<br>')
+  return (jinja2.utils.urlize(reproduction_help).replace('\n', '<br>')
+          if reproduction_help else '')
 
 
 def get_testcase_detail(testcase):
@@ -384,12 +367,9 @@ def get_testcase_detail(testcase):
   formatted_reproduction_help = _format_reproduction_help(
       data_handler.get_formatted_reproduction_help(testcase))
   # When we have a HELP_TEMPLATE, ignore any default values set for HELP_URL.
-  if not formatted_reproduction_help:
-    reproduction_help_url = data_handler.get_reproduction_help_url(
-        testcase, config)
-  else:
-    reproduction_help_url = None
-
+  reproduction_help_url = (None if formatted_reproduction_help else
+                           data_handler.get_reproduction_help_url(
+                               testcase, config))
   if not testcase.regression:
     regression = 'Pending'
   elif testcase.regression == 'NA':
@@ -413,9 +393,8 @@ def get_testcase_detail(testcase):
         testcase.job_type, testcase.platform_id, testcase.fixed)
 
   last_tested = None
-  last_tested_revision = (
-      metadata.get('last_tested_revision') or testcase.crash_revision)
-  if last_tested_revision:
+  if last_tested_revision := (metadata.get('last_tested_revision')
+                              or testcase.crash_revision):
     last_tested = _get_revision_range_html(
         testcase.job_type, testcase.platform_id, last_tested_revision)
 
@@ -460,12 +439,11 @@ def get_testcase_detail(testcase):
                               metadata['progression_pending'])
   pending_regression_task = not testcase.regression
   pending_stack_task = testcase.last_tested_crash_stacktrace == 'Pending'
-  needs_refresh = (
-      testcase.status == 'Pending' or
-      ((testcase.status == 'Processed' or testcase.status == 'Duplicate') and
-       (pending_blame_task or pending_impact_task or pending_minimize_task or
-        pending_progression_task or pending_regression_task or
-        pending_stack_task)))
+  needs_refresh = (testcase.status == 'Pending'
+                   or testcase.status in ['Processed', 'Duplicate'] and
+                   (pending_blame_task or pending_impact_task
+                    or pending_minimize_task or pending_progression_task
+                    or pending_regression_task or pending_stack_task))
 
   if data_types.SecuritySeverity.is_valid(testcase.security_severity):
     security_severity = severity_analyzer.severity_to_string(
@@ -499,7 +477,7 @@ def get_testcase_detail(testcase):
   memory_tool_display_label = memory_tool_display_string.split(':')[0]
   memory_tool_display_value = memory_tool_display_string.split(':')[1].strip()
 
-  helpers.log('Testcase %s' % testcase.key.id(), helpers.VIEW_OPERATION)
+  helpers.log(f'Testcase {testcase.key.id()}', helpers.VIEW_OPERATION)
   return {
       'id':
           testcase.key.id(),
@@ -626,11 +604,10 @@ class DeprecatedHandler(base_handler.Handler):
 
   def get(self):
     """Serve the redirect to the current test case detail page."""
-    testcase_id = request.args.get('key')
-    if not testcase_id:
+    if testcase_id := request.args.get('key'):
+      return self.redirect(f'/testcase-detail/{testcase_id}')
+    else:
       raise helpers.EarlyExitException('No testcase key provided.', 400)
-
-    return self.redirect('/testcase-detail/%s' % testcase_id)
 
 
 class RefreshHandler(base_handler.Handler):

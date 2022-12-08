@@ -61,7 +61,7 @@ def get_resource_name(prefix, project_name):
   max_name_length = 58
 
   project_name = project_name.lower().replace('_', '-')
-  name = prefix + '-' + project_name
+  name = f'{prefix}-{project_name}'
   return name[:max_name_length]
 
 
@@ -279,10 +279,10 @@ class OssFuzzClustersManager(ClustersManager):
 
   def __init__(self, project_id):
     super().__init__(project_id)
-    self.worker_to_assignment = {}
-    for assignment in self.gce_project.host_worker_assignments:
-      self.worker_to_assignment[assignment.worker] = assignment
-
+    self.worker_to_assignment = {
+        assignment.worker: assignment
+        for assignment in self.gce_project.host_worker_assignments
+    }
     self.all_host_names = set()
 
   def update_clusters(self):
@@ -347,11 +347,10 @@ class OssFuzzClustersManager(ClustersManager):
 
   def cleanup_old_assignments(self, host_names):
     """Remove old OSS-Fuzz host worker assignment entries."""
-    to_delete = []
-    for assignment in data_types.HostWorkerAssignment.query():
-      if assignment.host_name not in host_names:
-        to_delete.append(assignment.key)
-
+    to_delete = [
+        assignment.key for assignment in data_types.HostWorkerAssignment.query()
+        if assignment.host_name not in host_names
+    ]
     ndb_utils.delete_multi(to_delete)
 
   def distribute_cpus(self, projects, total_cpus):
@@ -366,11 +365,7 @@ class OssFuzzClustersManager(ClustersManager):
     cpu_count = []
 
     for project in projects:
-      if total_weight:
-        share = project.cpu_weight / total_weight
-      else:
-        share = 0.0
-
+      share = project.cpu_weight / total_weight if total_weight else 0.0
       share_cpus = int(total_cpus * share)
       share_cpus = max(PROJECT_MIN_CPUS, share_cpus)
       share_cpus = min(PROJECT_MAX_CPUS, share_cpus)
@@ -436,7 +431,7 @@ class OssFuzzClustersManager(ClustersManager):
     new_assignments = []
 
     for host_name in host_names:
-      for i in range(0, workers_per_host):
+      for i in range(workers_per_host):
         assignment = self.get_or_create_host_worker_assignment(host_name, i)
         if (assignment.worker_name and
             assignment.worker_name in current_worker_names):
@@ -650,12 +645,11 @@ class OssFuzzClustersManager(ClustersManager):
             len(instances))
         raise ManageVmsException('Inconsistent instance count in group.')
 
-      for instance in instances:
-        workers.append(
-            WorkerInstance(
-                name=_instance_name_from_url(instance['instance']),
-                project=project_info.name))
-
+      workers.extend(
+          WorkerInstance(
+              name=_instance_name_from_url(instance['instance']),
+              project=project_info.name,
+          ) for instance in instances)
     return workers
 
   def assign_hosts_to_workers(self, assignment):

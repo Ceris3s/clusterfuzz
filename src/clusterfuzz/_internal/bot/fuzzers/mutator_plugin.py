@@ -35,7 +35,7 @@ def _get_mutator_plugins_bucket_url():
                   'skipping custom mutator strategy.')
     return None
 
-  return 'gs://%s' % mutator_plugins_bucket
+  return f'gs://{mutator_plugins_bucket}'
 
 
 def _get_mutator_plugins_subdir(subdir):
@@ -58,10 +58,8 @@ def _get_mutator_plugins_from_bucket():
   """Returns list of the mutator plugin archives in the mutator plugin storage
   bucket."""
   mutator_plugins_bucket_url = _get_mutator_plugins_bucket_url()
-  if not mutator_plugins_bucket_url:
-    return None
-
-  return storage.list_blobs(mutator_plugins_bucket_url)
+  return (storage.list_blobs(mutator_plugins_bucket_url)
+          if mutator_plugins_bucket_url else None)
 
 
 def _download_mutator_plugin_archive(mutator_plugin_archive):
@@ -70,10 +68,9 @@ def _download_mutator_plugin_archive(mutator_plugin_archive):
   downloaded to."""
   file_path = os.path.join(_get_mutator_plugins_archives_dir(),
                            mutator_plugin_archive)
-  url = '%s/%s' % (_get_mutator_plugins_bucket_url(), mutator_plugin_archive)
+  url = f'{_get_mutator_plugins_bucket_url()}/{mutator_plugin_archive}'
   if not storage.copy_file_from(url, file_path):
-    logs.log_error(
-        'Failed to copy plugin archive from %s to %s' % (url, file_path))
+    logs.log_error(f'Failed to copy plugin archive from {url} to {file_path}')
     return None
 
   return file_path
@@ -133,7 +130,7 @@ class PluginGetter(object):
     job, fuzz target combination."""
     _, plugin_job_and_fuzzer = _extract_name_from_archive(
         plugin_archive_filename)
-    expected_name = '%s-%s' % (self.job_name, self.fuzzer_binary_name)
+    expected_name = f'{self.job_name}-{self.fuzzer_binary_name}'
     return expected_name == plugin_job_and_fuzzer
 
   def get_mutator_plugin(self):
@@ -163,7 +160,7 @@ class PluginGetter(object):
     _unpack_mutator_plugin(plugin_archive_path)
     mutator_plugin_path = find_mutator_plugin()
     if mutator_plugin_path is None:
-      logs.log_error('Could not find plugin in %s' % plugin_archive_path)
+      logs.log_error(f'Could not find plugin in {plugin_archive_path}')
 
     return mutator_plugin_path
 
@@ -172,11 +169,11 @@ def find_mutator_plugin():
   """Sets LD_PRELOAD to the path of a usable mutator plugin shared object.
   This should only be called after a call to get_mutator_plugin."""
   paths = shell.get_files_list(_get_mutator_plugins_unpacked_dir())
-  # This function should not be called unless there is an unpacked plugin.
-  for path in paths:
-    if os.path.basename(path) == MUTATOR_SHARED_OBJECT_FILENAME:
-      return path
-  return None
+  return next(
+      (path for path in paths
+       if os.path.basename(path) == MUTATOR_SHARED_OBJECT_FILENAME),
+      None,
+  )
 
 
 def get_mutator_plugin(fuzzer_binary_name):

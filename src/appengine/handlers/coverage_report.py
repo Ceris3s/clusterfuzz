@@ -41,10 +41,7 @@ def _get_project_report_url(job, date):
       raise helpers.EarlyExitException('Invalid date.', 400)
 
   info = fuzzer_stats.get_coverage_info(project, date)
-  if not info:
-    return None
-
-  return info.html_report_url
+  return info.html_report_url if info else None
 
 
 def get_report_url(report_type, argument, date):
@@ -73,7 +70,6 @@ class Handler(base_handler.Handler):
   @handler.get(handler.HTML)
   def get(self, report_type=None, argument=None, date=None, extra=None):
     """Handle a get request."""
-    report_url = get_report_url(report_type, argument, date)
-    if report_url:
+    if report_url := get_report_url(report_type, argument, date):
       return self.redirect(report_url)
     raise helpers.EarlyExitException('Failed to get coverage report.', 400)

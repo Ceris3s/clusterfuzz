@@ -29,10 +29,7 @@ class GoogleFuzzTestError(Exception):
 def _get_reproducer_path(line):
   """Get the reproducer path, if any."""
   crash_match = _CRASH_REGEX.match(line)
-  if not crash_match:
-    return None
-
-  return crash_match.group(1)
+  return crash_match.group(1) if crash_match else None
 
 
 class Engine(engine.Engine):
@@ -82,8 +79,7 @@ class Engine(engine.Engine):
 
     crashes = []
     for line in log_lines:
-      reproducer_path = _get_reproducer_path(line)
-      if reproducer_path:
+      if reproducer_path := _get_reproducer_path(line):
         crashes.append(
             engine.Crash(
                 reproducer_path,

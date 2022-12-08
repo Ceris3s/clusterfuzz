@@ -108,9 +108,7 @@ class RequestHandler(http.server.BaseHTTPRequestHandler):
 
     self.send_response(200, 'OK')
 
-    # Send a content type header if applicable.
-    mime_type = guess_mime_type(absolute_path)
-    if mime_type:
+    if mime_type := guess_mime_type(absolute_path):
       self.send_header('Content-type', mime_type)
 
     self.end_headers()

@@ -196,7 +196,7 @@ class TestRunner(object):
     # Generate a unique suffix to append to files we want to ignore.
     index = 0
     file_rename_suffix = '___%d' % index
-    while any([f.endswith(file_rename_suffix) for f in files_to_rename]):
+    while any(f.endswith(file_rename_suffix) for f in files_to_rename):
       index += 1
       file_rename_suffix = '___%d' % index
 
@@ -205,8 +205,10 @@ class TestRunner(object):
       absolute_file_to_rename = os.path.join(self.input_directory,
                                              file_to_rename)
       try:
-        os.rename(absolute_file_to_rename,
-                  '%s%s' % (absolute_file_to_rename, file_rename_suffix))
+        os.rename(
+            absolute_file_to_rename,
+            f'{absolute_file_to_rename}{file_rename_suffix}',
+        )
       except OSError:
         # This can happen if we have already renamed a directory with files
         # under it. In this case, make sure we don't try to change the name
@@ -224,8 +226,10 @@ class TestRunner(object):
     for file_to_rename in files_to_rename:
       absolute_file_to_rename = os.path.join(self.input_directory,
                                              file_to_rename)
-      os.rename('%s%s' % (absolute_file_to_rename, file_rename_suffix),
-                absolute_file_to_rename)
+      os.rename(
+          f'{absolute_file_to_rename}{file_rename_suffix}',
+          absolute_file_to_rename,
+      )
 
     return self._handle_test_result(result)
 
@@ -303,7 +307,7 @@ class TestRunner(object):
         user_profile_index=profile_index,
         write_command_line_file=arguments_changed)
     if log_command:
-      logs.log('Executing command: %s' % command)
+      logs.log(f'Executing command: {command}')
 
     return_code, crash_time, output = process_handler.run_process(
         command, timeout=timeout, gestures=gestures)
@@ -417,12 +421,9 @@ def execute_task(testcase_id, job_type):
   warmup_timeout = environment.get_value('WARMUP_TIMEOUT')
   required_arguments = environment.get_value('REQUIRED_APP_ARGS', '')
 
-  # Add any testcase-specific required arguments if needed.
-  additional_required_arguments = testcase.get_metadata(
-      'additional_required_app_args')
-  if additional_required_arguments:
-    required_arguments = '%s %s' % (required_arguments,
-                                    additional_required_arguments)
+  if additional_required_arguments := testcase.get_metadata(
+      'additional_required_app_args'):
+    required_arguments = f'{required_arguments} {additional_required_arguments}'
 
   test_runner = TestRunner(testcase, testcase_file_path, file_list,
                            input_directory, app_arguments, required_arguments,
@@ -640,7 +641,7 @@ def minimize_gestures(test_runner, testcase):
         progress_report_function=functools.partial(logs.log))
     gestures = gesture_minimizer.minimize(gestures)
 
-  logs.log('Minimized gestures: %s' % str(gestures))
+  logs.log(f'Minimized gestures: {str(gestures)}')
   return gestures
 
 
@@ -681,7 +682,7 @@ def minimize_file_list(test_runner, file_list, input_directory, main_file):
   if fixed_testcase_file_path not in file_list:
     file_list.append(fixed_testcase_file_path)
 
-  logs.log('Minimized file list: %s' % str(file_list))
+  logs.log(f'Minimized file list: {str(file_list)}')
   return file_list
 
 
@@ -713,7 +714,7 @@ def minimize_resource(test_runner, dependency, input_directory, main_file):
           delete_temp_files=False))
   utils.write_data_to_file(dependency_data, dependency_absolute_path)
 
-  logs.log('Minimized dependency file: %s' % dependency)
+  logs.log(f'Minimized dependency file: {dependency}')
 
 
 def minimize_arguments(test_runner, app_arguments):
@@ -727,9 +728,7 @@ def minimize_arguments(test_runner, app_arguments):
       single_thread_cleanup_interval=test_runner.cleanup_interval,
       progress_report_function=functools.partial(logs.log))
   reduced_args = argument_minimizer.minimize(app_arguments.split())
-  reduced_arg_string = test_runner.get_argument_string(reduced_args)
-
-  return reduced_arg_string
+  return test_runner.get_argument_string(reduced_args)
 
 
 def store_minimized_testcase(testcase, base_directory, file_list,
@@ -877,19 +876,14 @@ def get_temporary_file_name(original_file):
   basename = basename[-MAX_TEMPORARY_FILE_BASENAME_LENGTH:]
 
   random_hex = binascii.b2a_hex(os.urandom(16)).decode('utf-8')
-  new_file_path = os.path.join(directory, '%s%s' % (random_hex, basename))
-
-  return new_file_path
+  return os.path.join(directory, f'{random_hex}{basename}')
 
 
 def get_temporary_file(original_file, no_modifications=False):
   """Get a temporary file handle with a name based on an original file name."""
   if no_modifications:
-    handle = open(original_file, 'wb')
-    return handle
-
-  handle = open(get_temporary_file_name(original_file), 'wb')
-  return handle
+    return open(original_file, 'wb')
+  return open(get_temporary_file_name(original_file), 'wb')
 
 
 def get_ipc_message_util_executable():
@@ -916,13 +910,12 @@ def create_partial_ipc_dump(tokens, original_file_path):
 
   executable = get_ipc_message_util_executable()
   command_line = shell.get_command_line_from_argument_list(
-      [executable,
-       '--in=%s' % token_list, original_file_path, temp_file_path])
+      [executable, f'--in={token_list}', original_file_path, temp_file_path])
   return_code, _, output = process_handler.run_process(
       command_line, testcase_run=False, timeout=IPCDUMP_TIMEOUT)
   if return_code or not os.path.exists(temp_file_path):
     # For some reason, generating the new file failed.
-    logs.log_error('Failed to create ipc dump file %s.' % output)
+    logs.log_error(f'Failed to create ipc dump file {output}.')
     return None
 
   return temp_file_path
@@ -942,7 +935,7 @@ def combine_ipc_dumps(ipcdumps, original_file_path):
     shell.remove_file(ipcdump)
 
   if return_code or not os.path.exists(output_file_path):
-    logs.log_error('Failed to create ipc dump file %s.' % output)
+    logs.log_error(f'Failed to create ipc dump file {output}.')
     return None
 
   return output_file_path
@@ -1029,11 +1022,8 @@ def do_ipc_dump_minimization(test_function, get_temp_file, file_path, deadline,
       # error should already be logged, so no need to do it again here.
       return b''
 
-    # TODO(mbarbella): Allow token combining functions to write files directly.
-    handle = open(combined_file_path, 'rb')
-    result = handle.read()
-    handle.close()
-
+    with open(combined_file_path, 'rb') as handle:
+      result = handle.read()
     shell.remove_file(combined_file_path)
     return result
 
@@ -1185,7 +1175,7 @@ def _run_libfuzzer_tool(tool_name,
     _unset_dedup_flags()
 
   if not os.path.exists(output_file_path):
-    logs.log_warn('LibFuzzer %s run failed.' % tool_name, output=result.output)
+    logs.log_warn(f'LibFuzzer {tool_name} run failed.', output=result.output)
     return None, None
 
   # Ensure that the crash parameters match. It's possible that we will
@@ -1276,7 +1266,7 @@ def do_libfuzzer_minimization(testcase, testcase_file_path):
   # Minimize *_OPTIONS env variable first.
   env = {}
   for tool in environment.SUPPORTED_MEMORY_TOOLS_FOR_OPTIONS:
-    options_env_var = tool + '_OPTIONS'
+    options_env_var = f'{tool}_OPTIONS'
     options = environment.get_memory_tool_options(options_env_var)
     if not options:
       continue

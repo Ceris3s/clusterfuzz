@@ -226,10 +226,7 @@ class IssueTracker(issue_tracker.IssueTracker):
 
   def get_issue(self, issue_id):
     monorail_issue = self._itm.get_issue(int(issue_id))
-    if not monorail_issue:
-      return None
-
-    return Issue(monorail_issue)
+    return Issue(monorail_issue) if monorail_issue else None
 
   def find_issues(self, keywords=None, only_open=False):
     """Find issues."""
@@ -295,18 +292,13 @@ def _get_issue_tracker_manager_for_project(project_name):
 
 def _get_search_text(keywords):
   """Get search text."""
-  search_text = ' '.join(['"{}"'.format(keyword) for keyword in keywords])
+  search_text = ' '.join([f'"{keyword}"' for keyword in keywords])
   search_text = search_text.replace(':', ' ')
-  search_text = search_text.replace('=', ' ')
-
-  return search_text
+  return search_text.replace('=', ' ')
 
 
 def get_issue_tracker(project_name, config):  # pylint: disable=unused-argument
   """Get the issue tracker for the project name."""
   # TODO(ochang): Make this lazy.
   itm = _get_issue_tracker_manager_for_project(project_name)
-  if itm is None:
-    return None
-
-  return IssueTracker(itm)
+  return None if itm is None else IssueTracker(itm)

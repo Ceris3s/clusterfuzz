@@ -87,16 +87,12 @@ FROM main.crashes
 """
 
   result = client.query(query=sql)
-  if result and result.rows:
-    return result.rows[0]['min_hour']
-
-  return 0
+  return result.rows[0]['min_hour'] if result and result.rows else 0
 
 
 def get_last_successful_hour_or_start_hour():
   """Get the last hour that ran successfully or the start hour."""
-  last_hour = crash_stats.get_last_successful_hour()
-  if last_hour:
+  if last_hour := crash_stats.get_last_successful_hour():
     return last_hour
 
   return get_start_hour()
@@ -122,7 +118,7 @@ def get_next_end_hour():
 def make_request(client, job_id, end_hour):
   """Make a request to BigQuery to build crash stats."""
   table_id = (
-      'crash_stats$%s' % crash_stats.get_datetime(end_hour).strftime('%Y%m%d'))
+      f"crash_stats${crash_stats.get_datetime(end_hour).strftime('%Y%m%d')}")
 
   sql = SQL.format(
       end_hour=end_hour,
@@ -183,4 +179,4 @@ class Handler(base_handler.Handler):
   def get(self):
     """Process a GET request from a cronjob."""
     end_hour = build_if_needed()
-    return 'OK (end_hour=%s)' % end_hour
+    return f'OK (end_hour={end_hour})'

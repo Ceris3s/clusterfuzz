@@ -35,17 +35,15 @@ class Handler(base_handler.Handler):
     if not key:
       raise helpers.EarlyExitException('No key provided.', 400)
 
-    testcase_id = request.get('testcase_id')
-    if testcase_id:
+    if testcase_id := request.get('testcase_id'):
       testcase = helpers.get_testcase(testcase_id)
       if not access.can_user_access_testcase(testcase):
         raise helpers.AccessDeniedException()
 
       if key not in [testcase.fuzzed_keys, testcase.minimized_keys]:
         raise helpers.AccessDeniedException()
-    else:
-      if not access.has_access():
-        raise helpers.AccessDeniedException()
+    elif not access.has_access():
+      raise helpers.AccessDeniedException()
 
     blob_size = blobs.get_blob_size(key)
     if blob_size > MAX_ALLOWED_CONTENT_SIZE:
@@ -64,7 +62,6 @@ class Handler(base_handler.Handler):
 
     line_count = len(content.splitlines())
     size = len(content)
-    title = '%s, %s' % (utils.get_line_count_string(line_count),
-                        utils.get_size_string(size))
+    title = f'{utils.get_line_count_string(line_count)}, {utils.get_size_string(size)}'
 
     return self.render('viewer.html', {'content': content, 'title': title})

@@ -65,11 +65,9 @@ def get_user_job_type():
 def _is_domain_allowed(email):
   """Check if the email's domain is allowed."""
   domains = local_config.AuthConfig().get('whitelisted_domains', default=[])
-  for domain in domains:
-    if utils.normalize_email(email).endswith('@%s' % domain.lower()):
-      return True
-
-  return False
+  return any(
+      utils.normalize_email(email).endswith(f'@{domain.lower()}')
+      for domain in domains)
 
 
 class UserAccess(object):
@@ -145,8 +143,7 @@ def can_user_access_testcase(testcase):
   # is a duplicate of the original issue).
   issues_to_check = [associated_issue]
   if associated_issue.merged_into:
-    original_issue = issue_tracker.get_original_issue(issue_id)
-    if original_issue:
+    if original_issue := issue_tracker.get_original_issue(issue_id):
       issues_to_check.append(original_issue)
 
   relaxed_restrictions = (

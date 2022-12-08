@@ -28,8 +28,8 @@ def _prepare_testcase_dict(testcase):
   # the testcase and other models changes over time.
   # pylint: disable=protected-access
   testcase_dict = testcase._to_dict()
-  fuzz_target = data_handler.get_fuzz_target(testcase.actual_fuzzer_name())
-  if fuzz_target:
+  if fuzz_target := data_handler.get_fuzz_target(
+      testcase.actual_fuzzer_name()):
     fuzz_target_dict = fuzz_target._to_dict()
   else:
     fuzz_target_dict = None

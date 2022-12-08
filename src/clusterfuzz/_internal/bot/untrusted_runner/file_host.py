@@ -57,7 +57,7 @@ def _rebase(path, target_base, cur_base):
     return target_base
 
   # Only paths relative to ROOT_DIR are supported.
-  assert not rel_path.startswith(os.pardir), 'Bad relative path %s' % rel_path
+  assert not rel_path.startswith(os.pardir), f'Bad relative path {rel_path}'
   return os.path.join(target_base, rel_path)
 
 
@@ -149,7 +149,7 @@ def copy_directory_to_worker(host_directory, worker_directory, replace=False):
       worker_file_path = os.path.join(
           worker_directory, os.path.relpath(file_path, host_directory))
       if not copy_file_to_worker(file_path, worker_file_path):
-        logs.log_warn('Failed to copy %s to worker.' % file_path)
+        logs.log_warn(f'Failed to copy {file_path} to worker.')
         return False
 
   return True
@@ -179,7 +179,7 @@ def copy_directory_from_worker(worker_directory, host_directory, replace=False):
       os.makedirs(host_file_directory)
 
     if not copy_file_from_worker(worker_file_path, host_file_path):
-      logs.log_warn('Failed to copy %s from worker.' % worker_file_path)
+      logs.log_warn(f'Failed to copy {worker_file_path} from worker.')
       return False
 
   return True
@@ -189,10 +189,7 @@ def stat(path):
   """stat() a path."""
   request = untrusted_runner_pb2.StatRequest(path=path)
   response = host.stub().Stat(request)
-  if not response.result:
-    return None
-
-  return response
+  return response if response.result else None
 
 
 def clear_testcase_directories():

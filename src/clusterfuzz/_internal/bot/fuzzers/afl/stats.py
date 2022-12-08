@@ -237,8 +237,8 @@ class StatsGetter(object):
         'STRATEGY_SELECTION_METHOD', default_value='default')
 
     if fuzzing_strategies.use_corpus_subset:
-      self.stats['strategy_' + strategy.CORPUS_SUBSET_STRATEGY.name] = (
-          fuzzing_strategies.corpus_subset_size)
+      self.stats[
+          f'strategy_{strategy.CORPUS_SUBSET_STRATEGY.name}'] = fuzzing_strategies.corpus_subset_size
 
     if (fuzzing_strategies.generator_strategy == engine_common.Generator.RADAMSA
        ):

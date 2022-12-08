@@ -63,8 +63,7 @@ def extend_request(req, params):
   """Extends a request."""
 
   def _iterparams():
-    for k, v in params.items():
-      yield k, v
+    yield from params.items()
 
   def _get(key, default_value=None):
     """Return the value of the key or the default value."""
@@ -80,7 +79,7 @@ def extend_json_request(req):
     params = json.loads(req.data)
   except ValueError as e:
     raise helpers.EarlyExitException(
-        'Parsing the JSON request body failed: %s' % req.data, 400) from e
+        f'Parsing the JSON request body failed: {req.data}', 400) from e
 
   extend_request(req, params)
 
@@ -98,10 +97,7 @@ def cron():
         raise helpers.AccessDeniedException('You are not a cron.')
 
       result = func(self)
-      if result is None:
-        return 'OK'
-
-      return result
+      return 'OK' if result is None else result
 
     return wrapper
 
@@ -134,10 +130,7 @@ def check_admin_access_if_oss_fuzz(func):
   @functools.wraps(func)
   def wrapper(self):
     """Wrapper."""
-    if utils.is_oss_fuzz():
-      return check_admin_access(func)(self)
-
-    return func(self)
+    return check_admin_access(func)(self) if utils.is_oss_fuzz() else func(self)
 
   return wrapper
 
@@ -187,15 +180,15 @@ def get_access_token(verification_code):
       })
 
   if response.status_code != 200:
-    raise helpers.UnauthorizedException('Invalid verification code (%s): %s' %
-                                        (verification_code, response.text))
+    raise helpers.UnauthorizedException(
+        f'Invalid verification code ({verification_code}): {response.text}')
 
   try:
     data = json.loads(response.text)
     return data['access_token']
   except (KeyError, ValueError) as e:
     raise helpers.EarlyExitException(
-        'Parsing the JSON response body failed: %s' % response.text, 500) from e
+        f'Parsing the JSON response body failed: {response.text}', 500) from e
 
 
 def get_email_and_access_token(authorization):
@@ -220,8 +213,8 @@ def get_email_and_access_token(authorization):
       params={'access_token': access_token})
   if response.status_code != 200:
     raise helpers.UnauthorizedException(
-        'Failed to authorize. The Authorization header (%s) might be invalid.' %
-        authorization)
+        f'Failed to authorize. The Authorization header ({authorization}) might be invalid.'
+    )
 
   try:
     data = json.loads(response.text)
@@ -236,22 +229,22 @@ def get_email_and_access_token(authorization):
     # ID for the reproduce tool.
     whitelisted_client_ids = _auth_config().get(
         'whitelisted_oauth_client_ids', default=[])
-    reproduce_tool_client_id = db_config.get_value('reproduce_tool_client_id')
-    if reproduce_tool_client_id:
+    if reproduce_tool_client_id := db_config.get_value(
+        'reproduce_tool_client_id'):
       whitelisted_client_ids += [reproduce_tool_client_id]
     if data.get('aud') not in whitelisted_client_ids:
       raise helpers.UnauthorizedException(
-          "The access token doesn't belong to one of the allowed OAuth clients"
-          ': %s.' % response.text)
+          f"The access token doesn't belong to one of the allowed OAuth clients: {response.text}."
+      )
 
     if not data.get('email_verified'):
-      raise helpers.UnauthorizedException('The email (%s) is not verified: %s.'
-                                          % (data.get('email'), response.text))
+      raise helpers.UnauthorizedException(
+          f"The email ({data.get('email')}) is not verified: {response.text}.")
 
     return data['email'], authorization
   except (KeyError, ValueError) as e:
     raise helpers.EarlyExitException(
-        'Parsing the JSON response body failed: %s' % response.text, 500) from e
+        f'Parsing the JSON response body failed: {response.text}', 500) from e
 
 
 def oauth(func):

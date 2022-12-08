@@ -57,7 +57,7 @@ def update_admins(new_admins):
   existing_admin_emails = set()
   for admin in existing_admins:
     if admin.email not in new_admins:
-      logs.log('Removing admin ' + admin.email)
+      logs.log(f'Removing admin {admin.email}')
       to_remove.append(admin.key)
 
     existing_admin_emails.add(admin.email)
@@ -68,7 +68,7 @@ def update_admins(new_admins):
   for admin in new_admins:
     if admin not in existing_admin_emails:
       to_add.append(data_types.Admin(id=admin, email=admin))
-      logs.log('Adding admin ' + admin)
+      logs.log(f'Adding admin {admin}')
 
   ndb_utils.put_multi(to_add)
 

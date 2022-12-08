@@ -138,16 +138,13 @@ class EngineFuzzer(BuiltinFuzzer):
                                                          fuzzer_binary_name)
     output += 'metadata::fuzzer_binary_name: %s\n' % fuzzer_binary_name
 
-    issue_owners = engine_common.get_issue_owners(fuzzer_path)
-    if issue_owners:
+    if issue_owners := engine_common.get_issue_owners(fuzzer_path):
       output += 'metadata::issue_owners: %s\n' % ','.join(issue_owners)
 
-    issue_labels = engine_common.get_issue_labels(fuzzer_path)
-    if issue_labels:
+    if issue_labels := engine_common.get_issue_labels(fuzzer_path):
       output += 'metadata::issue_labels: %s\n' % ','.join(issue_labels)
 
-    issue_components = engine_common.get_issue_components(fuzzer_path)
-    if issue_components:
+    if issue_components := engine_common.get_issue_components(fuzzer_path):
       output += 'metadata::issue_components: %s\n' % ','.join(issue_components)
 
     # Update *SAN_OPTIONS in current environment from .options file. This
@@ -166,4 +163,4 @@ def _get_fuzzer_path(target_list, fuzzer_name):
     if os.path.basename(path) == fuzzer_filename:
       return path
 
-  raise BuiltinFuzzerException('Failed to find chosen target ' + fuzzer_name)
+  raise BuiltinFuzzerException(f'Failed to find chosen target {fuzzer_name}')

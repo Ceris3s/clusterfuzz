@@ -108,11 +108,7 @@ def handle_update(testcase, revision, stacktraces, error, protocol_version):
     return
 
   fuzz_target = testcase.get_fuzz_target()
-  if fuzz_target:
-    fuzz_target_name = fuzz_target.binary
-  else:
-    fuzz_target_name = None
-
+  fuzz_target_name = fuzz_target.binary if fuzz_target else None
   # Record use of fuzz target to avoid garbage collection (since fuzz_task does
   # not run).
   data_handler.record_fuzz_target(fuzz_target.engine, fuzz_target.binary,

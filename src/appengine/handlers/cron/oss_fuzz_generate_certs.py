@@ -32,7 +32,7 @@ def generate_cert(project_name):
 
   cert = crypto.X509()
   cert.get_subject().C = 'US'
-  cert.get_subject().CN = '*' + untrusted.internal_network_domain()
+  cert.get_subject().CN = f'*{untrusted.internal_network_domain()}'
   cert.get_subject().O = project_name
   cert.set_serial_number(9001)
   cert.set_notBefore(b'20000101000000Z')
@@ -58,7 +58,7 @@ class Handler(base_handler.Handler):
         # Already generated.
         continue
 
-      logs.log('Generating cert for %s.' % project.name)
+      logs.log(f'Generating cert for {project.name}.')
       cert_contents, key_contents = generate_cert(project.name)
 
       tls_cert = data_types.WorkerTlsCert(

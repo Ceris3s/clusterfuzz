@@ -53,15 +53,12 @@ def is_fuzz_target_local(file_path, file_handle=None):
   if filename.endswith('_fuzzer'):
     return True
 
-  # TODO(aarya): Remove this optimization if it does not show up significant
-  # savings in profiling results.
-  fuzz_target_name_regex = environment.get_value('FUZZER_NAME_REGEX')
-  if fuzz_target_name_regex:
+  if fuzz_target_name_regex := environment.get_value('FUZZER_NAME_REGEX'):
     return bool(re.match(fuzz_target_name_regex, filename))
 
   if os.path.exists(file_path) and not stat.S_ISREG(os.stat(file_path).st_mode):
     # Don't read special files (eg: /dev/urandom).
-    logs.log_warn('Tried to read from non-regular file: %s.' % file_path)
+    logs.log_warn(f'Tried to read from non-regular file: {file_path}.')
     return False
 
   # Use already provided file handle or open the file.
@@ -140,7 +137,7 @@ def get_supporting_file(fuzz_target_path, extension_or_suffix):
 
 def get_temp_dir():
   """Return the temp dir."""
-  temp_dirname = 'temp-' + str(os.getpid())
+  temp_dirname = f'temp-{str(os.getpid())}'
   temp_directory = os.path.join(
       environment.get_value('FUZZ_INPUTS_DISK', tempfile.gettempdir()),
       temp_dirname)

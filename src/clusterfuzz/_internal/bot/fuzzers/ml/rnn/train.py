@@ -144,9 +144,9 @@ def main(args):
   # validation curves visually in Tensorboard.
   timestamp = str(math.trunc(time.time()))
   summary_writer = tf.summary.create_file_writer(
-      os.path.join(log_dir, timestamp + '-training'))
+      os.path.join(log_dir, f'{timestamp}-training'))
   validation_writer = tf.summary.create_file_writer(
-      os.path.join(log_dir, timestamp + '-validation'))
+      os.path.join(log_dir, f'{timestamp}-validation'))
 
   # For display: init the progress bar.
   step_size = batch_size * constants.TRAINING_SEQLEN
@@ -154,11 +154,12 @@ def main(args):
   progress = utils.Progress(
       constants.DISPLAY_FREQ,
       size=constants.DISPLAY_LEN,
-      msg='Training on next {} batches'.format(constants.DISPLAY_FREQ))
+      msg=f'Training on next {constants.DISPLAY_FREQ} batches',
+  )
 
   # We continue training on existing model, or start with a new model.
   if existing_model:
-    print('Continue training on existing model: {}'.format(existing_model))
+    print(f'Continue training on existing model: {existing_model}')
     try:
       model.load_weights(existing_model)
     except:
@@ -207,8 +208,7 @@ def main(args):
       validation_model = utils.build_model(
           hidden_layer_size * hidden_state_size, dropout_pkeep,
           validation_batch_size, False)
-      last_weights = tf.train.latest_checkpoint(model_dir)
-      if last_weights:
+      if last_weights := tf.train.latest_checkpoint(model_dir):
         validation_model.load_weights(tf.train.latest_checkpoint(model_dir))
         validation_model.build(tf.TensorShape([validation_batch_size, None]))
         validation_model.reset_states()
@@ -236,8 +236,7 @@ def main(args):
 
       generation_model = utils.build_model(
           hidden_layer_size * hidden_state_size, dropout_pkeep, 1, False)
-      last_weights = tf.train.latest_checkpoint(model_dir)
-      if last_weights:
+      if last_weights := tf.train.latest_checkpoint(model_dir):
         generation_model.load_weights(tf.train.latest_checkpoint(model_dir))
         generation_model.build(tf.TensorShape([1, None]))
         generation_model.reset_states()
@@ -256,10 +255,10 @@ def main(args):
     # Save a checkpoint every `10 * frequency` batches. Each checkpoint is
     # a version of model.
     if steps // 10 % frequency == 0:
-      saved_model_name = constants.RNN_MODEL_NAME + '_' + timestamp
+      saved_model_name = f'{constants.RNN_MODEL_NAME}_{timestamp}'
       saved_model_path = os.path.join(model_dir, saved_model_name)
       model.save_weights(saved_model_path)
-      print('Saved model: {}'.format(saved_model_path))
+      print(f'Saved model: {saved_model_path}')
 
     # Display progress bar.
     if debug:
@@ -269,10 +268,10 @@ def main(args):
     steps += step_size
 
   # Save the model after training is done.
-  saved_model_name = constants.RNN_MODEL_NAME + '_' + timestamp
+  saved_model_name = f'{constants.RNN_MODEL_NAME}_{timestamp}'
   saved_model_path = os.path.join(model_dir, saved_model_name)
   model.save_weights(saved_model_path)
-  print('Saved model: {}'.format(saved_model_path))
+  print(f'Saved model: {saved_model_path}')
 
   return constants.ExitCode.SUCCESS
 
@@ -287,9 +286,7 @@ def validate_paths(args):
     True if all paths are valid, False otherwise.
   """
   if not os.path.exists(args.input_dir):
-    print(
-        'Input directory {} does not exist'.format(args.input_dir),
-        file=sys.stderr)
+    print(f'Input directory {args.input_dir} does not exist', file=sys.stderr)
     return False
 
   if not os.path.exists(args.model_dir):
@@ -299,9 +296,7 @@ def validate_paths(args):
     os.mkdir(args.log_dir)
 
   if args.existing_model and not utils.validate_model_path(args.existing_model):
-    print(
-        'Existing model {} does not exist'.format(args.existing_model),
-        file=sys.stderr)
+    print(f'Existing model {args.existing_model} does not exist', file=sys.stderr)
     return False
 
   return True

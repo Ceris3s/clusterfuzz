@@ -42,11 +42,7 @@ class EmptyTokenRemover(minimizer.Minimizer):  # pylint:disable=abstract-method
     """Try to remove all blank tokens, then individual ones."""
     testcase = minimizer.Testcase(data, self)
     tokens = testcase.tokens
-    empty_tokens = []
-
-    for i, token in enumerate(tokens):
-      if self.is_empty(token):
-        empty_tokens.append(i)
+    empty_tokens = [i for i, token in enumerate(tokens) if self.is_empty(token)]
 
     # Try to remove all of them.
     testcase.prepare_test(empty_tokens)

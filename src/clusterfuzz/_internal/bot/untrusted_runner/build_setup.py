@@ -19,10 +19,7 @@ from clusterfuzz._internal.system import environment
 
 
 def _build_response(result):
-  if not result:
-    return untrusted_runner_pb2.SetupBuildResponse(result=False)
-
-  return untrusted_runner_pb2.SetupBuildResponse(
+  return (untrusted_runner_pb2.SetupBuildResponse(
       result=True,
       app_path=environment.get_value('APP_PATH'),
       app_path_debug=environment.get_value('APP_PATH_DEBUG'),
@@ -30,7 +27,8 @@ def _build_response(result):
       build_dir=environment.get_value('BUILD_DIR'),
       build_url=environment.get_value('BUILD_URL'),
       fuzz_target=environment.get_value('FUZZ_TARGET'),
-      fuzz_target_count=environment.get_value('FUZZ_TARGET_COUNT'))
+      fuzz_target_count=environment.get_value('FUZZ_TARGET_COUNT'),
+  ) if result else untrusted_runner_pb2.SetupBuildResponse(result=False))
 
 
 def setup_regular_build(request):

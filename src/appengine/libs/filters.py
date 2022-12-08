@@ -40,10 +40,8 @@ def extract_keyword_field(keyword, field):
   """Extract the value from the keyword given the field and return the new
     keyword."""
   regex = re.compile(KEYWORD_FIELD_REGEX % field, flags=re.IGNORECASE)
-  match = re.search(regex, keyword)
-
-  if match:
-    value = match.group(1)
+  if match := re.search(regex, keyword):
+    value = match[1]
     if value.startswith('"') and value.endswith('"'):
       value = value.strip('"')
     elif value.startswith("'") and value.endswith("'"):
@@ -96,8 +94,7 @@ class SimpleFilter(Filter):
     value = params.get(self.param_key)
     if is_empty(value):
       if self.required:
-        raise helpers.EarlyExitException("'%s' is required." % self.param_key,
-                                         400)
+        raise helpers.EarlyExitException(f"'{self.param_key}' is required.", 400)
       return
 
     try:
@@ -105,7 +102,7 @@ class SimpleFilter(Filter):
         value = transformer(value)
     except ValueError:
       raise helpers.EarlyExitException(
-          "Invalid '%s': %s" % (self.param_key, sys.exc_info()[1]), 400)
+          f"Invalid '{self.param_key}': {sys.exc_info()[1]}", 400)
 
     query.filter(self.field, value, **self.extras)
 

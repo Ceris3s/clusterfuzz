@@ -49,5 +49,5 @@ def generate_csrf_token(length=64, valid_seconds=3600, html=False):
 
   value = valid_token.value
   if html:
-    return '<input type="hidden" name="csrf_token" value="%s" />' % value
+    return f'<input type="hidden" name="csrf_token" value="{value}" />'
   return value

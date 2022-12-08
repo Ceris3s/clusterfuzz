@@ -27,7 +27,7 @@ class JavaScriptBaseLexer(antlr4.Lexer):
     self._useStrictCurrent = False
 
   def IsStartOfFile(self):
-    return self._lastToken == None
+    return self._lastToken is None
 
   def getStrictDefault(self):
     return self._useStrictDefault
@@ -61,22 +61,27 @@ class JavaScriptBaseLexer(antlr4.Lexer):
       self._useStrictCurrent = self._useStrictDefault
 
   def ProcessStringLiteral(self):
-    if self._lastToken == None or self._lastToken.type == self.OpenBrace:
+    if self._lastToken is None or self._lastToken.type == self.OpenBrace:
       text = super(JavaScriptBaseLexer, self).text
-      if text == '"use strict"' or text == '\'use strict\'':
+      if text in ['"use strict"', '\'use strict\'']:
         if len(self._scopeStrictModes) > 0:
           self._scopeStrictModes.pop()
         self._useStrictCurrent = True
         self._scopeStrictModes.append(self._useStrictCurrent)
 
   def IsRegExPossible(self):
-    if self._lastToken == None:
+    if self._lastToken is None:
       return True
 
-    if self._lastToken in [
-        self.Identifier, self.NullLiteral, self.BooleanLiteral, self.This,
-        self.CloseBracket, self.CloseParen, self.OctalIntegerLiteral,
-        self.StringLiteral, self.PlusPlus, self.MinusMinus
-    ]:
-      return False
-    return True
+    return self._lastToken not in [
+        self.Identifier,
+        self.NullLiteral,
+        self.BooleanLiteral,
+        self.This,
+        self.CloseBracket,
+        self.CloseParen,
+        self.OctalIntegerLiteral,
+        self.StringLiteral,
+        self.PlusPlus,
+        self.MinusMinus,
+    ]
